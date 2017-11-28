@@ -407,7 +407,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 		--Starting--
 		------------
 		--Set our target if we don't have one already and the actor should actually be going somewhere, not being an engine buggy little shit
-		if target[1] == nil and (actor.AIMode == Actor.AIMODE_GOTO or actor.AIMode == Actor.AIMODE_BRAINHUNT) then
+		if target[1] == nil and (actor.AIMode == Actor.AIMODE_GOTO or actor.AIMode == Actor.AIMODE_BRAINHUNT or actor.AIMode == Actor.AIMODE_SQUAD) then
 
 			print (tostring(target[1]).."  "..tostring(actor:GetLastAIWaypoint()).."  "..tostring(actor:GetLastAIWaypoint()).."  "..tostring(actor.Pos).." No waypoint or waypoint changed!");
 			--Get the first actor waypoint and, if it's MO, the target actor
@@ -416,7 +416,10 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 				ept = pt;
 			end
 			target[1] = ept;
-			target[2] = actor.MOMoveTarget;
+			target[2] = nil;
+			if (type(actor.MOMoveTarget) ~= "nil") then
+				target[2] = {MO = actor.MOMoveTarget, mode = actor.AIMode};
+			end
 			--Get the list of remaining waypoints if we don't have an MO waypoint and our waypoint isn't in the movator area and we have more than one waypoint
 			if target[2] == nil and CombinedMovatorArea[self.Team+3]:IsInside(target[1]) == false and target[1] ~= actor:GetLastAIWaypoint() then
 				local ept = nil;
@@ -718,14 +721,14 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 						mstage = 6;
 					end
 				end
-			--Destination inside movator area - reset the actor unless he shouldn't reset, make him stay able to goto again, if he's got an actor waypoint, goto it
+			--Destination inside movator area - reset the actor unless he shouldn't reset, make him stay able to goto or squad again, if he's got an actor waypoint, goto it
 			elseif mstage == 5 and MovableMan:IsActor(actor) then
 				--Halt the actor
 				dir = 4;
 				--If it's an MO target
 				local retarget = 0;
 				if type(target[2]) ~= "nil" then
-					local dist = SceneMan:ShortestDistance(actor.Pos,target[2].Pos,MovatorCheckWrapping);
+					local dist = SceneMan:ShortestDistance(actor.Pos,target[2].MO.Pos,MovatorCheckWrapping);
 					local sizex = math.abs(dist.X); local sizey = math.abs(dist.Y);
 					--Set a flag for if the actor's far enough away to retarget
 					if math.max(sizex, sizey) > self.ActorTargetRange then
@@ -739,8 +742,8 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 				if retarget > 0 then
 					--If we  should get moving, add the target MO's current position as our target and reset the variables so we start over
 					if retarget == 2 then
-						actor:AddAIMOWaypoint(target[2]);
-						actor.AIMode = Actor.AIMODE_GOTO;
+						actor:AddAIMOWaypoint(target[2].MO);
+						actor.AIMode = target[2].mode;
 						actor:UpdateMovePath();
 						target = {nil, nil, {}};
 						print("Stage 5 time to move, readd actor waypoint");
@@ -751,7 +754,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 					actor:ClearAIWaypoints();
 					mstage = 0;
 				end
-			--Destination outside of movator area - set his ai back to goto and give him back his waypoint, reset variables and advance stage out of bounds so it works properly
+			--Destination outside of movator area - set his ai back to goto or squad and give him back his waypoint, reset variables and advance stage out of bounds so it works properly
 			elseif mstage == 6 and MovableMan:IsActor(actor) then
 				print ("Out of area, give him his waypoint and leave him alone");
 				if type(target[2]) == "nil" then
@@ -760,11 +763,12 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 					for i = 1, #target[3] do
 						actor:AddAISceneWaypoint(target[3][i]);
 					end
+					actor.AIMode = Actor.AIMODE_GOTO;
 				else
-					actor:AddAIMOWaypoint(target[2]);
+					actor:AddAIMOWaypoint(target[2].MO);
+					actor.AIMode = target[2].mode;
 				end
-				--Change ai mode and update movepath to avoid issues
-				actor.AIMode = Actor.AIMODE_GOTO;
+				--Update movepath to avoid issues
 				actor:UpdateMovePath();
 				--Reset variables and behaviour
 				target = {nil, nil, {}};
@@ -772,9 +776,9 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 			end
 		end
 	end
-		if MovableMan:IsActor(actor) and not actor:IsPlayerControlled() then
+	if MovableMan:IsActor(actor) and not actor:IsPlayerControlled() then
 		ToGameActivity(ActivityMan:GetActivity()):AddObjectivePoint("Life: "..tostring(actor.Lifetime).."  Dir: "..tostring(dir).." Stage: "..tostring(mstage).." S: "..tostring(start~=nil).." N: "..tostring(nnode~=nil).." D: "..tostring(dest~=nil).." T1: "..tostring(target[1]).." T2: "..tostring(target[2]), Vector(actor.Pos.X, actor.Pos.Y - 20), self.Team, GameActivity.ARROWDOWN);
-		end
+	end
 
 	self.MovatorAffectedActors[actor.Lifetime].dir = dir;
 	self.MovatorAffectedActors[actor.Lifetime].stage = mstage;
