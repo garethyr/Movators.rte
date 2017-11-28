@@ -1,0 +1,6 @@
+For mobile Movators:
+Place in a circle (shortest distance) around the actor.
+To place, use pie button for placing mode.
+Then click once, shows dotted line to any lining up movator:
+Green if self will be powered, red if not. No line if nothing lines up.
+Click again to place, pie button to go back.
