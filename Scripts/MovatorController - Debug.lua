@@ -5,7 +5,21 @@ Power, etc. A long time in the future
 --]]
 
 --Include and run all the global movator stuff
-dofile("Movator.rte/GlobalMovatorFunctions.lua");
+dofile("Movator.rte/Scripts/GlobalMovatorFunctions.lua");
+
+-----------------------------------------------------------------------------------------
+-- Pie Menu
+-----------------------------------------------------------------------------------------
+function CommandActivateMovatorController(self)
+	if self:GetNumberValue("activated") == 0 then
+		self:SetNumberValue("activated", 1);
+		self.Frame = 1;
+	else
+		self:RemoveNumberValue("activated");
+		self.Frame = 0;
+	end
+end
+
 -----------------------------------------------------------------------------------------
 -- Create
 -----------------------------------------------------------------------------------------
@@ -213,6 +227,10 @@ function Update(self)
 	
 	--If we're running the activity, do various checks
 	if ActivityMan:GetActivity().ActivityState == Activity.RUNNING then
+		if (self:GetNumberValue("activated") > 0) then
+			DoUI(self);
+		end
+		
 		--Make sure all nodes are fully generated before doing any of these complex checks so there are no screwups in making their boxes
 		if self.NodeGenerationSafetyTimer ~= nil and self.NodeGenerationSafetyTimer:IsPastSimMS(self.NodeGenerationSafetyInterval) then
 			self.NodeGenerationSafetyInterval = 50;
@@ -291,6 +309,14 @@ function Update(self)
 		end
 	end
 end
+
+-----------------------------------------------------------------------------------------
+-- UI for players to let them manage movator options
+-----------------------------------------------------------------------------------------
+function DoUI(self)
+	print ("UI!");
+end
+
 -----------------------------------------------------------------------------------------
 -- Find Nearest Visible Movator (returns a reference to that movator)
 -----------------------------------------------------------------------------------------
