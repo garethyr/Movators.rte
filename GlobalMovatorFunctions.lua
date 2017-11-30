@@ -547,6 +547,17 @@ function AddMovatorNode(node)
 	--Add the inputted movator node to the table if it's not there already
 	--[1] - number of connected nodes, [2] - size, ["ablr"] - the movator in each direction and its distance, ["box"] - movator's box, ["sbox"] - movator's inside box, for ai direction changes, ["areas"] - the area between this movator and the one above and left of it
 	if MovatorNodeTable[node.Team+3][node] == nil then
+		for teamKey, teamNodeTable in pairs(MovatorNodeTable) do
+			for nodeKey, nodeInfo in pairs(teamNodeTable) do
+				if nodeInfo.box ~= false then
+					local nodeBox = Box(Vector(node.Pos.X - node.Sharpness*0.5, node.Pos.Y - node.Sharpness*0.5) , Vector(node.Pos.X + node.Sharpness*0.5, node.Pos.Y + node.Sharpness*0.5));
+					if BoxesIntersect(nodeInfo.box, nodeBox) then
+						node.ToDelete = true;
+						return false;
+					end
+				end
+			end
+		end
 		MovatorNodeTable[node.Team+3][node] = {0, 0, a = {nil, 0}, b = {nil, 0}, l = {nil, 0}, r = {nil, 0}, box = false, sbox = false, area = {above = nil, left = nil}};
 		--Fill in the inputted movator node's information then return true so the zone knows it's good
 		return GenerateNodeInfo(node);
@@ -661,21 +672,37 @@ function RemoveMovatorNode(node)
 	local mytable = MovatorNodeTable[node.Team+3];
 	--Put together a temporary table of the nodes whose connections we need to recheck
 	local t = mytable[node];
-	local size = mytable[node][2];
-	local tocheck = {t.a[1], t.b[1], t.l[1], t.r[1]};
-	--Clear this value from the global table
-	mytable[node] = nil;
-	--Check all the necessary nodes' connections
-	for k, v in pairs(tocheck) do
-		if v ~= nil then			
-			--Completely reset the movator's table value, not done manually to avoid maintaining two similar functions
-			mytable[v] = nil;
-			v.Sharpness = 100;
+	if type(t) ~= "nil" then
+		local size = mytable[node][2];
+		local tocheck = {t.a[1], t.b[1], t.l[1], t.r[1]};
+		--Clear this value from the global table
+		mytable[node] = nil;
+		--Check all the necessary nodes' connections
+		for k, v in pairs(tocheck) do
+			if v ~= nil then
+				--Completely reset the movator's table value, not done manually to avoid maintaining two similar functions
+				mytable[v] = nil;
+				v.Sharpness = 100;
+			end
 		end
 	end
 end
 
-
+-----------------------------
+--General Utility Functions--
+-----------------------------
+--Function for checking if two boxes intersect
+function BoxesIntersect(box1, box2)
+	local box1Area = Area();
+	box1Area:AddBox(box1);
+	local points = {box2.Corner, Vector(box2.Corner.X + box2.Width, box2.Corner.Y), Vector(box2.Corner.X, box2.Corner.Y + box2.Height), Vector(box2.Corner.X + box2.Width, box2.Corner.Y + box2.Height)}
+	for _, point in ipairs(points) do
+		if box1Area:IsInside(point) then
+			return true;
+		end
+	end
+	return false;
+end
 
 --DEBUG
 function DebugMovators(num, team)

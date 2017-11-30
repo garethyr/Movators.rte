@@ -75,5 +75,6 @@ end
 -- Destroy
 -----------------------------------------------------------------------------------------
 function Destroy(self)
+	ActivityMan:GetActivity():SetTeamFunds(ActivityMan:GetActivity():GetTeamFunds(self.Team) + self:GetGoldValue(0,0), self.Team);
 	RemoveMovatorNode(self);
 end
