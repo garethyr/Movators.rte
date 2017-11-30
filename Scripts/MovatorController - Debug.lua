@@ -13,10 +13,38 @@ dofile("Movator.rte/Scripts/GlobalMovatorFunctions.lua");
 function CommandActivateMovatorController(self)
 	if self:GetNumberValue("activated") == 0 then
 		self:SetNumberValue("activated", 1);
-		self.Frame = 1;
 	else
 		self:RemoveNumberValue("activated");
-		self.Frame = 0;
+	end
+end
+function CommandIncreaseMovatorSpeed(self)
+	if self:GetNumberValue("increaseSpeed") == 0 then
+		self:SetNumberValue("increaseSpeed", 1);
+	end
+end
+function CommandDecreaseMovatorSpeed(self)
+	if self:GetNumberValue("decreaseSpeed") == 0 then
+		self:SetNumberValue("decreaseSpeed", 1);
+	end
+end
+function CommandSwapTeamActorAcceptance(self)
+	if self:GetNumberValue("swapTeamActorAcceptance") == 0 then
+		self:SetNumberValue("swapTeamActorAcceptance", 1);
+	end
+end
+function CommandSwapCraftAcceptance(self)
+	if self:GetNumberValue("swapCraftAcceptance") == 0 then
+		self:SetNumberValue("swapCraftAcceptance", 1);
+	end
+end
+function CommandIncreaseMovatorMassLimit(self)
+	if self:GetNumberValue("increaseMassLimit") == 0 then
+		self:SetNumberValue("increaseMassLimit", 1);
+	end
+end
+function CommandDecreaseMovatorMassLimit(self)
+	if self:GetNumberValue("decreaseMassLimit") == 0 then
+		self:SetNumberValue("decreaseMassLimit", 1);
 	end
 end
 
@@ -41,14 +69,20 @@ function Create(self)
 	self.PathRoutine = coroutine.create(AddAllPaths);
 	self.ObstructionRoutine = coroutine.create(CheckAllObstructions);
 	
-	--HashTable for actors affected by the movators
+	--HashTable for actors affected by the movators along with a length value
 	--["act"] - the actor, ["dir] - their movement direction, ["prevdir"] - their previous movement direction, ["cnode"] - the node they should centre to, changed on direction change
 	--["stage"] - their movement stage, ["s"] - their start node, ["n"] - their next node in path, ["d"] - their destination node in path,
 	--["t"] - [1] - their closest waypoint, [2] -nil if it's scene or the actor if it's MO, [3]- a table of their remaining waypoints to be added back later or nil if they have an MO waypoint
-	self.MovatorAffectedActors = {};
+	self.MovatorAffectedActors = {length = 0};
+	
+	--Boolean for whether or not this controller should be displaying its UI
+	self.DisplayingUI = false;
 	
 	--Boolean for whether or not this controller will move actors of any team or only its own
-	self.AcceptAllActors = true;
+	self.AcceptAllActors = false;
+	
+	--Boolean for whether or not this controller will move crafts as well as normal actors
+	self.AcceptCrafts = false;
 	
 	--The range of distance to look for actors when trying to find an actor target for a movator passenger - greater range means it's easier for the player to get working if the target is moving quickly, but actors follow less closely
 	self.ActorTargetRange = 48;
@@ -104,6 +138,8 @@ end
 -- Update
 -----------------------------------------------------------------------------------------
 function Update(self)
+	HandlePieButtons(self);
+	
 	--Input based testing
 	if true then
 	--Reset
@@ -116,7 +152,9 @@ function Update(self)
 		
 		self.CurLifetime = self.BaseLifetime;
 		for k, v in pairs(self.MovatorAffectedActors) do 
-			v.act.Lifetime = 0;
+			if type (k) ~= "string" then
+				v.act.Lifetime = 0;
+			end
 		end
 		self.MovatorAffectedActors = {};
 		
@@ -156,9 +194,11 @@ function Update(self)
 	end
 	if UInputMan:KeyPressed(2) then
 		for k, v in pairs(self.MovatorAffectedActors) do
-			print("LifeT: "..tostring(k).."  Act: "..tostring(v.act).."  Dir: "..tostring(v.dir).."  PDir: "..tostring(v.prevdir).."  Stage: "..tostring(v.stage).."  Start: "..tostring(v.s~=nil).."  Next: "..tostring(v.n~=nil).."  Dest: "..tostring(v.d~=nil).."Target: "..tostring(v.t[1]));
-			if MovableMan:IsActor(v.act) then
-				print(v.act.Pos);
+			if type (k) ~= "string" then
+				print("LifeT: "..tostring(k).."  Act: "..tostring(v.act).."  Dir: "..tostring(v.dir).."  PDir: "..tostring(v.prevdir).."  Stage: "..tostring(v.stage).."  Start: "..tostring(v.s~=nil).."  Next: "..tostring(v.n~=nil).."  Dest: "..tostring(v.d~=nil).."Target: "..tostring(v.t[1]));
+				if MovableMan:IsActor(v.act) then
+					print(v.act.Pos);
+				end
 			end
 		end
 	end
@@ -227,10 +267,6 @@ function Update(self)
 	
 	--If we're running the activity, do various checks
 	if ActivityMan:GetActivity().ActivityState == Activity.RUNNING then
-		if (self:GetNumberValue("activated") > 0) then
-			DoUI(self);
-		end
-		
 		--Make sure all nodes are fully generated before doing any of these complex checks so there are no screwups in making their boxes
 		if self.NodeGenerationSafetyTimer ~= nil and self.NodeGenerationSafetyTimer:IsPastSimMS(self.NodeGenerationSafetyInterval) then
 			self.NodeGenerationSafetyInterval = 50;
@@ -276,10 +312,11 @@ function Update(self)
 		if self.ActorCheckLagTimer:IsPastSimMS(100) then
 			for actor in MovableMan.Actors do
 				if MovableMan:IsActor(actor) then
-					if CombinedMovatorArea[self.Team+3]:IsInside(actor.Pos) and actor.Lifetime < self.BaseLifetime  and (actor.Team == self.Team or self.AcceptAllActors) and actor.PinStrength == 0 and actor.Mass < self.MassLimit and (actor.ClassName == "AHuman" or actor.ClassName == "ACrab") then
+					if CombinedMovatorArea[self.Team+3]:IsInside(actor.Pos) and actor.Lifetime < self.BaseLifetime  and (actor.Team == self.Team or self.AcceptAllActors) and actor.PinStrength == 0 and actor.Mass < self.MassLimit and (actor.ClassName == "AHuman" or actor.ClassName == "ACrab" or (self.AcceptCrafts and actor.ClassName == "ACraft" or actor.ClassName == "ACRocket" or actor.ClassName == "ACDropShip")) then
 						actor.Lifetime = self.CurLifetime;
 						self.CurLifetime = self.CurLifetime + 1;
 						self.MovatorAffectedActors[actor.Lifetime] = {act = actor, dir = -1, prevdir = -2, cnode = 0, stage = 0, s = 0, n = 0, e = 0, t = {nil, nil, {}}};
+						self.MovatorAffectedActors.length = self.MovatorAffectedActors.length + 1;
 					end
 				end
 			end
@@ -288,25 +325,74 @@ function Update(self)
 		
 		if self.ActorMovementLagTimer:IsPastSimMS(15) then
 			for k, v in pairs(self.MovatorAffectedActors) do
-				--Remove the actor if it's dead and don't try to do anything with it
-				if not MovableMan:IsActor(v.act) then
-					self.MovatorAffectedActors[k] = nil;
-				else
-					--Removes the actors from the table if they're not in the Movator Area
-					if not CombinedMovatorArea[self.Team+3]:IsInside(v.act.Pos) then
-						v.act.Lifetime = 0;
+				if type (k) ~= "string" then
+					--Remove the actor if it's dead and don't try to do anything with it
+					if not MovableMan:IsActor(v.act) then
 						self.MovatorAffectedActors[k] = nil;
-					--Performs all the actions
 					else
-						--Pick the right direction to move in for players and ai
-						GetDirections(self, v.act, v.dir, v.stage, v.s, v.n, v.d, v.t);
-						--Do the actual movements
-						DoMovements(self , v.act, v.dir, v.prevdir, v.cnode);
+						--Removes the actors from the table if they're not in the Movator Area
+						if not CombinedMovatorArea[self.Team+3]:IsInside(v.act.Pos) then
+							v.act.Lifetime = 0;
+							self.MovatorAffectedActors[k] = nil;
+							self.MovatorAffectedActors.length = self.MovatorAffectedActors.length - 1;
+						--Performs all the actions
+						else
+							--Pick the right direction to move in for players and ai
+							GetDirections(self, v.act, v.dir, v.stage, v.s, v.n, v.d, v.t);
+							--Do the actual movements
+							DoMovements(self , v.act, v.dir, v.prevdir, v.cnode);
+						end
 					end
 				end
 			end
 			self.ActorMovementLagTimer:Reset();
 		end
+	end
+	
+	--Now that everything else is done, handle UI
+	if (self.DisplayingUI) then
+		self.Frame = 1;
+		DoUI(self);
+	else
+		self.Frame = 0;
+	end
+end
+
+-----------------------------------------------------------------------------------------
+-- Look for values set by Pie Button presses and handle them accordingly
+-----------------------------------------------------------------------------------------
+function HandlePieButtons(self)
+	if self:GetNumberValue("activated") > 0 then
+		self.DisplayingUI = true;
+	else
+		self.DisplayingUI = false;
+	end
+	
+	if self:GetNumberValue("increaseSpeed") > 0 then
+		self.Speed = math.min(self.Speed + 1, 16);
+		self:RemoveNumberValue("increaseSpeed");
+	end
+	if self:GetNumberValue("decreaseSpeed") > 0 then
+		self.Speed = math.max(self.Speed - 1, 4);
+		self:RemoveNumberValue("decreaseSpeed");
+	end
+	
+	if self:GetNumberValue("swapTeamActorAcceptance") > 0 then
+		self.AcceptAllActors = not self.AcceptAllActors;
+		self:RemoveNumberValue("swapTeamActorAcceptance");
+	end
+	if self:GetNumberValue("swapCraftAcceptance") > 0 then
+		self.AcceptCrafts = not self.AcceptCrafts;
+		self:RemoveNumberValue("swapCraftAcceptance");
+	end
+	
+	if self:GetNumberValue("increaseMassLimit") > 0 then
+		self.MassLimit = math.min(self.MassLimit + 25, 1000);
+		self:RemoveNumberValue("increaseMassLimit");
+	end
+	if self:GetNumberValue("decreaseMassLimit") > 0 then
+		self.MassLimit = math.max(self.MassLimit - 25, 100);
+		self:RemoveNumberValue("decreaseMassLimit");
 	end
 end
 
@@ -314,7 +400,13 @@ end
 -- UI for players to let them manage movator options
 -----------------------------------------------------------------------------------------
 function DoUI(self)
-	print ("UI!");
+	local topLeft = Vector(self.Pos.X - 80, self.Pos.Y - 96);
+	FrameMan:DrawTextPrimitive(topLeft, "Controlled Movators: "..tostring(MovatorNodeTableCount[self.Team+3]), false, 0);
+	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 16), "Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length), false, 0);
+	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 32), "Movator Accepts All Teams: "..tostring(self.AcceptAllActors), false, 0);
+	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 48), "Movator Accepts Crafts: "..tostring(self.AcceptCrafts), false, 0);
+	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 64), "Movator Speed: "..tostring(self.Speed), false, 0);
+	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 80), "Movator Mass Limit: "..tostring(self.MassLimit), false, 0);
 end
 
 -----------------------------------------------------------------------------------------

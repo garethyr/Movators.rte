@@ -6,6 +6,7 @@ if not GlobalMovatorVariablesMade then
 	MovatorPowerValues = {};
 
 	MovatorNodeTable = {};
+	MovatorNodeTableCount = {};
 	MovatorPathTable = {};
 	CombinedMovatorArea = {};
 	MovatorCheckWrapping = false;
@@ -560,7 +561,14 @@ function AddMovatorNode(node)
 		end
 		MovatorNodeTable[node.Team+3][node] = {0, 0, a = {nil, 0}, b = {nil, 0}, l = {nil, 0}, r = {nil, 0}, box = false, sbox = false, area = {above = nil, left = nil}};
 		--Fill in the inputted movator node's information then return true so the zone knows it's good
-		return GenerateNodeInfo(node);
+		if GenerateNodeInfo(node) then
+			if type(MovatorNodeTableCount[node.Team+3]) == "nil" then
+				MovatorNodeTableCount[node.Team+3] = 0;
+			else
+				MovatorNodeTableCount[node.Team+3] = MovatorNodeTableCount[node.Team+3] + 1;
+			end
+			return true;
+		end
 	end
 	return false;
 end
@@ -685,6 +693,7 @@ function RemoveMovatorNode(node)
 				v.Sharpness = 100;
 			end
 		end
+		MovatorNodeTableCount[node.Team+3] = MovatorNodeTableCount[node.Team+3] - 1;
 	end
 end
 
