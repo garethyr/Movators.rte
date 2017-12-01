@@ -6,6 +6,7 @@ Power, etc. A long time in the future
 
 --Include and run all the global movator stuff
 dofile("Movator.rte/Scripts/GlobalMovatorFunctions.lua");
+dofile("Movator.rte/Scripts/GlobalUIFunctions.lua");
 
 -----------------------------------------------------------------------------------------
 -- Pie Menu
@@ -349,6 +350,7 @@ function Update(self)
 		end
 	end
 	
+	DoEffects(self);
 	--Now that everything else is done, handle UI
 	if (self.DisplayingUI) then
 		self.Frame = 1;
@@ -400,13 +402,25 @@ end
 -- UI for players to let them manage movator options
 -----------------------------------------------------------------------------------------
 function DoUI(self)
-	local topLeft = Vector(self.Pos.X - 80, self.Pos.Y - 96);
-	FrameMan:DrawTextPrimitive(topLeft, "Controlled Movators: "..tostring(MovatorNodeTableCount[self.Team+3]), false, 0);
-	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 16), "Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length), false, 0);
-	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 32), "Movator Accepts All Teams: "..tostring(self.AcceptAllActors), false, 0);
-	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 48), "Movator Accepts Crafts: "..tostring(self.AcceptCrafts), false, 0);
-	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 64), "Movator Speed: "..tostring(self.Speed), false, 0);
-	FrameMan:DrawTextPrimitive(Vector(topLeft.X, topLeft.Y + 80), "Movator Mass Limit: "..tostring(self.MassLimit), false, 0);
+	local textDataTable = {
+		"Controlled Movators: "..tostring(MovatorNodeTableCount[self.Team+3]),
+		"Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length),
+		"Movator Accepts All Teams: "..tostring(self.AcceptAllActors),
+		"Movator Accepts Crafts: "..tostring(self.AcceptCrafts),
+		"Movator Speed: "..tostring(self.Speed),
+		"Movator Mass Limit: "..tostring(self.MassLimit)
+	}
+	local maxSizeBox = Vector(self.Pos.X, self.Pos.Y);--Box(Vector(self.Pos.X - 120, self.Pos.Y - 72), Vector(self.Pos.X + 120, self.Pos.Y + 72));
+	local config = {useSmallText = false, boxScalesToFitText = false, boxBGColour = 179, boxOutlineWidth = 1, boxOutlineColour = 254};
+	
+	DrawTextBox(textDataTable, maxSizeBox, config);
+end
+
+-----------------------------------------------------------------------------------------
+-- Effects for connections between Movators
+-----------------------------------------------------------------------------------------
+function DoEffects(self)
+	--FrameMan:DrawLinePrimitive()
 end
 
 -----------------------------------------------------------------------------------------
