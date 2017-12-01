@@ -243,13 +243,13 @@ function HandlePieButtons(self)
 			if self:GetController():IsState(Controller.SCROLL_UP) then
 				self.Speed = math.min(self.Speed + 1, self.MaxSpeed);
 			elseif self:GetController():IsState(Controller.SCROLL_DOWN) then
-				self.Speed = math.max(self.Speed - 1, self.MinSpeed = 4;);
+				self.Speed = math.max(self.Speed - 1, self.MinSpeed);
 			end
 		else
 			if self:GetController():IsState(Controller.HOLD_UP) then
 				self.Speed = math.min(self.Speed + 1, self.MaxSpeed);
 			elseif self:GetController():IsState(Controller.HOLD_DOWN) then
-				self.Speed = math.max(self.Speed - 1, self.MinSpeed = 4;);
+				self.Speed = math.max(self.Speed - 1, self.MinSpeed);
 			end
 		end
 	end
@@ -285,7 +285,7 @@ end
 -----------------------------------------------------------------------------------------
 function DoUI(self)
 	local textDataTable = {
-		"Controlled Movators: "..tostring(MovatorNodeTableCount[self.Team+3]),
+		"Controlled Movators: "..tostring(MovatorNodeTable[self.Team+3].length),
 		"Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length),
 		"Movator Accepts All Teams: "..tostring(self.AcceptAllActors),
 		"Movator Accepts Crafts: "..tostring(self.AcceptCrafts),
@@ -323,7 +323,7 @@ function NearestMovator(self, pos, checksight, pathchecker, inarea)
 	local mytable = MovatorNodeTable[self.Team+3];
 	local mypaths = MovatorPathTable[self.Team+3];
 	for k, v in pairs(mytable) do
-		if MovableMan:IsParticle(k) then
+		if (type(k) ~= "string" and MovableMan:IsParticle(k)) then
 			--Just check for distance if there's no node to check paths for, otherwise only check its distance if there's a path to it from pathchecker
 			if pathchecker == nil or (pathchecker ~= nil and mypaths[pathchecker] ~= nil and mypaths[pathchecker][k] ~= nil) then
 				--Find the shortest distance accounting for both x and y wrapping

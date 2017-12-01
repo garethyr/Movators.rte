@@ -6,7 +6,6 @@ if not GlobalMovatorVariablesMade then
 	MovatorPowerValues = {};
 
 	MovatorNodeTable = {};
-	MovatorNodeTableCount = {};
 	MovatorPathTable = {};
 	CombinedMovatorArea = {};
 	MovatorCheckWrapping = false;
@@ -21,7 +20,7 @@ end
 --------------------------------
 --Function for resetting all the movator variables for a team except power
 function ResetMovatorVariables(team)
-	MovatorNodeTable[team+3] = {};
+	MovatorNodeTable[team+3] = {length = 0};
 	CombinedMovatorArea[team+3] = Area();
 	MovatorPathTable[team+3] = {};
 	print ("Global Movator Variables Reset For Team "..tostring(team));
@@ -29,7 +28,7 @@ end
 --Function to completely empty and refill a team's movator table, costly since it has to do everything over again
 function RecheckAllMovators(team)
 	--Clear the table
-	MovatorNodeTable[team+3] = {};
+	MovatorNodeTable[team+3] = {length = 0};
 	--Iterate through all particles to find the node and add it
 	for node in MovableMan.Particles do
 		if node.PresetName == "Movator Zone Node" and node.Team == team then
@@ -51,61 +50,63 @@ function AddAllBoxes(team)
 	
 	--Now add all boxes and lines
 	for k, v in pairs(mytable) do
-		--First add the movator's actual boxes to the movator area
-		if v.box ~= nil then
-			CombinedMovatorArea[team+3]:AddBox(v.box)
-		else
-			print("Box Error: "..tostring(k.Pos).."  "..tostring(v.box));
-		end
-		
-		--Now add those boxes in between areas
-		--If we have a node above, find the in between box and add it
-		local nbox, nbox2 = nil;
-		local size = v[2];
-		if v.a[1] ~= nil then
-			--Check for wrapping so we can deal with it properly
-			if SceneMan.SceneWrapsY and v.a[1].Pos.Y > k.Pos.Y then
-				--Split this box into two and add it so we can cross the scenewrap point
-				nbox = Box(Vector(k.Pos.X - size*0.5, 0), Vector(k.Pos.X + size*0.5, k.Pos.Y - size*0.5)); --Box starts at top of map and goes to this movator
-				nbox2 = Box(Vector(k.Pos.X - size*0.5, v.a[1].Pos.Y + size*0.5), Vector(k.Pos.X + size*0.5, SceneMan.SceneHeight)); --Box starts at target and goes to bottom of map
+		if (type(k) ~= "string") then
+			--First add the movator's actual boxes to the movator area
+			if v.box ~= nil then
+				CombinedMovatorArea[team+3]:AddBox(v.box)
 			else
-				nbox = Box(Vector(k.Pos.X - size*0.5, v.a[1].Pos.Y + size*0.5) , Vector(k.Pos.X + size*0.5, k.Pos.Y - size*0.5));
+				print("Box Error: "..tostring(k.Pos).."  "..tostring(v.box));
 			end
-			v.area.above:AddBox(nbox);
-			CombinedMovatorArea[team+3]:AddBox(nbox);
-			if nbox2 ~= nil then
-				v.area.above:AddBox(nbox2);
-				CombinedMovatorArea[team+3]:AddBox(nbox2);
-				if MovatorDrawConnectingLines == true then
-					AddConnectionLines(team, k.Pos, v.a[1].Pos, size*0.5, mytable[v.a[1]][2]*0.5, 0, true);
+			
+			--Now add those boxes in between areas
+			--If we have a node above, find the in between box and add it
+			local nbox, nbox2 = nil;
+			local size = v[2];
+			if v.a[1] ~= nil then
+				--Check for wrapping so we can deal with it properly
+				if SceneMan.SceneWrapsY and v.a[1].Pos.Y > k.Pos.Y then
+					--Split this box into two and add it so we can cross the scenewrap point
+					nbox = Box(Vector(k.Pos.X - size*0.5, 0), Vector(k.Pos.X + size*0.5, k.Pos.Y - size*0.5)); --Box starts at top of map and goes to this movator
+					nbox2 = Box(Vector(k.Pos.X - size*0.5, v.a[1].Pos.Y + size*0.5), Vector(k.Pos.X + size*0.5, SceneMan.SceneHeight)); --Box starts at target and goes to bottom of map
+				else
+					nbox = Box(Vector(k.Pos.X - size*0.5, v.a[1].Pos.Y + size*0.5) , Vector(k.Pos.X + size*0.5, k.Pos.Y - size*0.5));
 				end
-			else
-				if MovatorDrawConnectingLines == true then
-					AddConnectionLines(team, k.Pos, v.a[1].Pos, size*0.5, mytable[v.a[1]][2]*0.5, 0, false);
+				v.area.above:AddBox(nbox);
+				CombinedMovatorArea[team+3]:AddBox(nbox);
+				if nbox2 ~= nil then
+					v.area.above:AddBox(nbox2);
+					CombinedMovatorArea[team+3]:AddBox(nbox2);
+					if MovatorDrawConnectingLines == true then
+						AddConnectionLines(team, k.Pos, v.a[1].Pos, size*0.5, mytable[v.a[1]][2]*0.5, 0, true);
+					end
+				else
+					if MovatorDrawConnectingLines == true then
+						AddConnectionLines(team, k.Pos, v.a[1].Pos, size*0.5, mytable[v.a[1]][2]*0.5, 0, false);
+					end
 				end
 			end
-		end
-		--If we have a node to the left, find the in between box and add it
-		if v.l[1] ~= nil then
-			--Check for wrapping so we can deal with it properly
-			if SceneMan.SceneWrapsX and v.l[1].Pos.X > k.Pos.X then
-				--Split this box into two and add it so we can cross the scenewrap point
-				nbox = Box(Vector(0, k.Pos.Y - size*0.5), Vector(k.Pos.X - size*0.5, k.Pos.Y + size*0.5)); --Box starts at the left of map and goes to this movator
-				nbox2 = Box(Vector(v.l[1].Pos.X + size*0.5, k.Pos.Y - size*0.5), Vector(SceneMan.SceneWidth , k.Pos.Y + size*0.5)); --Box starts at target and goes to right of map
-			else
-				nbox = Box(Vector(v.l[1].Pos.X + size*0.5, k.Pos.Y - size*0.5) , Vector(k.Pos.X - size*0.5, k.Pos.Y + size*0.5));
-			end
-			v.area.left:AddBox(nbox);
-			CombinedMovatorArea[team+3]:AddBox(nbox);
-			if nbox2 ~= nil then
-				v.area.left:AddBox(nbox2);
-				CombinedMovatorArea[team+3]:AddBox(nbox2);
-				if MovatorDrawConnectingLines == true then
-					AddConnectionLines(team, k.Pos, v.l[1].Pos, size*0.5, mytable[v.l[1]][2]*0.5,  1, true);
+			--If we have a node to the left, find the in between box and add it
+			if v.l[1] ~= nil then
+				--Check for wrapping so we can deal with it properly
+				if SceneMan.SceneWrapsX and v.l[1].Pos.X > k.Pos.X then
+					--Split this box into two and add it so we can cross the scenewrap point
+					nbox = Box(Vector(0, k.Pos.Y - size*0.5), Vector(k.Pos.X - size*0.5, k.Pos.Y + size*0.5)); --Box starts at the left of map and goes to this movator
+					nbox2 = Box(Vector(v.l[1].Pos.X + size*0.5, k.Pos.Y - size*0.5), Vector(SceneMan.SceneWidth , k.Pos.Y + size*0.5)); --Box starts at target and goes to right of map
+				else
+					nbox = Box(Vector(v.l[1].Pos.X + size*0.5, k.Pos.Y - size*0.5) , Vector(k.Pos.X - size*0.5, k.Pos.Y + size*0.5));
 				end
-			else
-				if MovatorDrawConnectingLines == true then
-					AddConnectionLines(team, k.Pos, v.l[1].Pos, size*0.5, mytable[v.l[1]][2]*0.5,  1, false);
+				v.area.left:AddBox(nbox);
+				CombinedMovatorArea[team+3]:AddBox(nbox);
+				if nbox2 ~= nil then
+					v.area.left:AddBox(nbox2);
+					CombinedMovatorArea[team+3]:AddBox(nbox2);
+					if MovatorDrawConnectingLines == true then
+						AddConnectionLines(team, k.Pos, v.l[1].Pos, size*0.5, mytable[v.l[1]][2]*0.5,  1, true);
+					end
+				else
+					if MovatorDrawConnectingLines == true then
+						AddConnectionLines(team, k.Pos, v.l[1].Pos, size*0.5, mytable[v.l[1]][2]*0.5,  1, false);
+					end
 				end
 			end
 		end
@@ -123,26 +124,26 @@ function MovatorToggleLines()
 			end
 		end
 	elseif MovatorDrawConnectingLines == true then
-		local mytable = MovatorNodeTable;
-		
-		for team, n in pairs(mytable) do
+		for team, n in pairs(MovatorNodeTable) do
 			for start, v in pairs(n) do
-				local count = 0;
-				--Do a loop checking vertical and horizontal connecting nodes
-				local t = {"a", "l"};
-				for i = 1, 2 do
-					--Only do stuff if we have a node above or to the left
-					if v[t[i]][1] ~= nil then
-						local dest = v[t[i]][1];
-						--If our dest's position is greater than our start's, it's wrapped so draw lines thusly
-						if dest.Pos.X > start.Pos.X or dest.Pos.Y > start.Pos.Y  then
-							AddConnectionLines(team, start.Pos, dest.Pos, v[2]*0.5, n[dest][2]*0.5, count, true);
-						--Otherwise, draw them without accounting for wrapping
-						else
-							AddConnectionLines(team, start.Pos, dest.Pos, v[2]*0.5, n[dest][2]*0.5, count, false);
+				if (type(start) ~= "string") then
+					local count = 0;
+					--Do a loop checking vertical and horizontal connecting nodes
+					local t = {"a", "l"};
+					for i = 1, 2 do
+						--Only do stuff if we have a node above or to the left
+						if v[t[i]][1] ~= nil then
+							local dest = v[t[i]][1];
+							--If our dest's position is greater than our start's, it's wrapped so draw lines thusly
+							if dest.Pos.X > start.Pos.X or dest.Pos.Y > start.Pos.Y  then
+								AddConnectionLines(team, start.Pos, dest.Pos, v[2]*0.5, n[dest][2]*0.5, count, true);
+							--Otherwise, draw them without accounting for wrapping
+							else
+								AddConnectionLines(team, start.Pos, dest.Pos, v[2]*0.5, n[dest][2]*0.5, count, false);
+							end
 						end
+						count = count+1;
 					end
-					count = count+1;
 				end
 			end
 		end
@@ -256,97 +257,99 @@ function AddAllPaths(team)
 	local nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
 	local acount = 0;
 	for k, v in pairs(mytable) do
-		confirmed, tentative = {}, {};
-		--Reset all our lovely locals
-		nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
-		
-		--Add the source node to the confirmed table
-		confirmed[k] = {0, 4};
-		
-		--Add source's neighbours to tentative nodes: {distance to node from start, next hop from start}
-		my = mytable[k];
-		if my.a[1] ~= nil and confirmed[my.a[1]] == nil then
-			tentative[my.a[1]] = {my.a[2]+confirmed[k][1], 0};
-		end
-		if my.b[1] ~= nil and confirmed[my.b[1]] == nil then
-			tentative[my.b[1]] = {my.b[2]+confirmed[k][1], 1};
-		end
-		if my.l[1] ~= nil and confirmed[my.l[1]] == nil then
-			tentative[my.l[1]] = {my.l[2]+confirmed[k][1], 2};
-		end
-		if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
-			tentative[my.r[1]] = {my.r[2]+confirmed[k][1], 3};
-		end
-		
-		--Start the loop to keep going while we have tentative nodes
-		while notents == false do
-			----------------------------------
-			--Confirm closest tentative node--
-			----------------------------------
-			--Iterate through the tentative nodes to find the one we should add next
-			dist1 = nil; dist2 = nil;
-			for m, n in pairs(tentative) do
-				--Set the first node we find's distance as dist1
-				if dist1 == nil then
-					dist1 = n[1];
-					nnode = m;
-				--The other nodes use dist2, which is then compared against dist1
-				else
-					dist2 = n[1];
-					if dist2 < dist1 then
-						--Set nnode as the closest one and change dist1
-						nnode = m;
-						dist1 = dist2;
-					end
-				end
-			end
-			--If this node doesn't actually have neighbours, break out and move on to the next node
-			if dist1 == nil and dist2 == nil then
-				break
-			end
-			--Add the new node to the confirmed list and remove it from the tentative list
-			confirmed[nnode] = {dist1, tentative[nnode][2]};
-			tentative[nnode] = nil;
+		if (type(k) ~= "string") then
+			confirmed, tentative = {}, {};
+			--Reset all our lovely locals
+			nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
 			
-			------------------------------------------------------
-			--Add confirmed nodes' neighbours to tentative nodes--
-			------------------------------------------------------
-			my = mytable[nnode];
-			--Add each direction to the tentative table, if it's not confirmed and it's not in the tentative table with a shorter distance already
+			--Add the source node to the confirmed table
+			confirmed[k] = {0, 4};
+			
+			--Add source's neighbours to tentative nodes: {distance to node from start, next hop from start}
+			my = mytable[k];
 			if my.a[1] ~= nil and confirmed[my.a[1]] == nil then
-				if (tentative[my.a[1]] ~= nil and tentative[my.a[1]][1] > (my.a[2]+confirmed[nnode][1])) or tentative[my.a[1]] == nil then
-					tentative[my.a[1]] = {my.a[2]+confirmed[nnode][1], confirmed[nnode][2]};
-				end
+				tentative[my.a[1]] = {my.a[2]+confirmed[k][1], 0};
 			end
 			if my.b[1] ~= nil and confirmed[my.b[1]] == nil then
-				if (tentative[my.b[1]] ~= nil and tentative[my.b[1]][1] > (my.b[2]+confirmed[nnode][1])) or tentative[my.b[1]] == nil then
-					tentative[my.b[1]] = {my.b[2]+confirmed[nnode][1], confirmed[nnode][2]};
-				end
+				tentative[my.b[1]] = {my.b[2]+confirmed[k][1], 1};
 			end
 			if my.l[1] ~= nil and confirmed[my.l[1]] == nil then
-				if (tentative[my.l[1]] ~= nil and tentative[my.l[1]][1] > (my.l[2]+confirmed[nnode][1])) or tentative[my.l[1]] == nil then
-					tentative[my.l[1]] = {my.l[2]+confirmed[nnode][1], confirmed[nnode][2]};
-				end
+				tentative[my.l[1]] = {my.l[2]+confirmed[k][1], 2};
 			end
 			if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
-				if (tentative[my.r[1]] ~= nil and tentative[my.r[1]][1] > (my.r[2]+confirmed[nnode][1])) or tentative[my.r[1]] == nil then
-					tentative[my.r[1]] = {my.r[2]+confirmed[nnode][1], confirmed[nnode][2]};
-				end
+				tentative[my.r[1]] = {my.r[2]+confirmed[k][1], 3};
 			end
 			
-			-------------------------------
-			--Checking for loop finishing--
-			-------------------------------
-			--Iterate through the tentative nodes to see if there's anything left in there, if there isn't we're done, otherwise we loop again
-			notents = true;
-			for m, n in pairs(tentative) do
-				notents = false;
-				break;
-			end
-			--A count to yield the coroutine every few runs
-			count = count+1;
-			if count%10 == 0 then
-				coroutine.yield();
+			--Start the loop to keep going while we have tentative nodes
+			while notents == false do
+				----------------------------------
+				--Confirm closest tentative node--
+				----------------------------------
+				--Iterate through the tentative nodes to find the one we should add next
+				dist1 = nil; dist2 = nil;
+				for m, n in pairs(tentative) do
+					--Set the first node we find's distance as dist1
+					if dist1 == nil then
+						dist1 = n[1];
+						nnode = m;
+					--The other nodes use dist2, which is then compared against dist1
+					else
+						dist2 = n[1];
+						if dist2 < dist1 then
+							--Set nnode as the closest one and change dist1
+							nnode = m;
+							dist1 = dist2;
+						end
+					end
+				end
+				--If this node doesn't actually have neighbours, break out and move on to the next node
+				if dist1 == nil and dist2 == nil then
+					break
+				end
+				--Add the new node to the confirmed list and remove it from the tentative list
+				confirmed[nnode] = {dist1, tentative[nnode][2]};
+				tentative[nnode] = nil;
+				
+				------------------------------------------------------
+				--Add confirmed nodes' neighbours to tentative nodes--
+				------------------------------------------------------
+				my = mytable[nnode];
+				--Add each direction to the tentative table, if it's not confirmed and it's not in the tentative table with a shorter distance already
+				if my.a[1] ~= nil and confirmed[my.a[1]] == nil then
+					if (tentative[my.a[1]] ~= nil and tentative[my.a[1]][1] > (my.a[2]+confirmed[nnode][1])) or tentative[my.a[1]] == nil then
+						tentative[my.a[1]] = {my.a[2]+confirmed[nnode][1], confirmed[nnode][2]};
+					end
+				end
+				if my.b[1] ~= nil and confirmed[my.b[1]] == nil then
+					if (tentative[my.b[1]] ~= nil and tentative[my.b[1]][1] > (my.b[2]+confirmed[nnode][1])) or tentative[my.b[1]] == nil then
+						tentative[my.b[1]] = {my.b[2]+confirmed[nnode][1], confirmed[nnode][2]};
+					end
+				end
+				if my.l[1] ~= nil and confirmed[my.l[1]] == nil then
+					if (tentative[my.l[1]] ~= nil and tentative[my.l[1]][1] > (my.l[2]+confirmed[nnode][1])) or tentative[my.l[1]] == nil then
+						tentative[my.l[1]] = {my.l[2]+confirmed[nnode][1], confirmed[nnode][2]};
+					end
+				end
+				if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
+					if (tentative[my.r[1]] ~= nil and tentative[my.r[1]][1] > (my.r[2]+confirmed[nnode][1])) or tentative[my.r[1]] == nil then
+						tentative[my.r[1]] = {my.r[2]+confirmed[nnode][1], confirmed[nnode][2]};
+					end
+				end
+				
+				-------------------------------
+				--Checking for loop finishing--
+				-------------------------------
+				--Iterate through the tentative nodes to see if there's anything left in there, if there isn't we're done, otherwise we loop again
+				notents = true;
+				for m, n in pairs(tentative) do
+					notents = false;
+					break;
+				end
+				--A count to yield the coroutine every few runs
+				count = count+1;
+				if count%10 == 0 then
+					coroutine.yield();
+				end
 			end
 		end
 		--Add the confirmed table to this node's dijkstra table
@@ -364,28 +367,27 @@ function ShowMyPath(team, node)
 	local confirmed, tentative = {}, {}; --Format - [node] = {distance, direction for next hop}
 	local nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
 	local acount = 0;
-	local k = node; local v = mytable[node];
 	local objpoints = {};
 	confirmed, tentative = {}, {};
 	--Reset all our lovely locals
 	nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
 	
 	--Add the source node to the confirmed table
-	confirmed[k] = {0, 4};
+	confirmed[node] = {0, 4};
 	
 	--Add source's neighbours to tentative nodes: {distance to node from start, next hop from start}
-	my = mytable[k];
+	my = mytable[node];
 	if my.a[1] ~= nil and confirmed[my.a[1]] == nil then
-		tentative[my.a[1]] = {my.a[2]+confirmed[k][1], 0};
+		tentative[my.a[1]] = {my.a[2]+confirmed[node][1], 0};
 	end
 	if my.b[1] ~= nil and confirmed[my.b[1]] == nil then
-		tentative[my.b[1]] = {my.b[2]+confirmed[k][1], 1};
+		tentative[my.b[1]] = {my.b[2]+confirmed[node][1], 1};
 	end
 	if my.l[1] ~= nil and confirmed[my.l[1]] == nil then
-		tentative[my.l[1]] = {my.l[2]+confirmed[k][1], 2};
+		tentative[my.l[1]] = {my.l[2]+confirmed[node][1], 2};
 	end
 	if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
-		tentative[my.r[1]] = {my.r[2]+confirmed[k][1], 3};
+		tentative[my.r[1]] = {my.r[2]+confirmed[node][1], 3};
 	end
 	
 	--Start the loop to keep going while we have tentative nodes
@@ -488,7 +490,7 @@ function ShowMyPath(team, node)
 	print("Total confirmed nodes: "..tostring(count));
 	ConsoleMan:SaveAllText("Movator Show Path Log.txt");
 	--Add the confirmed table to this node's dijkstra table
-	mypaths[k] = confirmed;
+	mypaths[node] = confirmed;
 	return objpoints;
 end
 
@@ -503,32 +505,34 @@ function CheckAllObstructions(team)
 	
 	--A bit hacky, clear each node's connections and its connections' connections, recheck them, if the number of connections the node has has changed from before, set flag
 	for k, v in pairs(mytable) do
-		--Clear this node's connections and save then clear its number of connections
-		for i = 1, 4 do
-			v[dirtable[i]] = {nil, 0};
-		end
-		connectionsnum = v[1];
-		v[1] = 0;
-		
-		--Fully check this node's connections
-		local vals = CheckConnections(k);
-		--If this movator has affected any others, refind all connections for them
-		if vals ~= nil then
-			for m, n in pairs(vals) do
-				mytable[n][1] = mytable[n][1] - 1;
-				mytable[n][revdirtable[m]] = {nil, 0};
-				CheckConnections(n);
+		if (type(k) ~= "string") then
+			--Clear this node's connections and save then clear its number of connections
+			for i = 1, 4 do
+				v[dirtable[i]] = {nil, 0};
 			end
-		end
-		
-		--Set the flag for if we need to make changes
-		if connectionsnum ~= v[1] then
-			changesneeded = true;
-		end
-		--Increase the count and yield if it's a multiple of 5
-		count = count + 1;
-		if count%5 == 0 then
-			coroutine.yield(changesneeded);
+			connectionsnum = v[1];
+			v[1] = 0;
+			
+			--Fully check this node's connections
+			local vals = CheckConnections(k);
+			--If this movator has affected any others, refind all connections for them
+			if vals ~= nil then
+				for m, n in pairs(vals) do
+					mytable[n][1] = mytable[n][1] - 1;
+					mytable[n][revdirtable[m]] = {nil, 0};
+					CheckConnections(n);
+				end
+			end
+			
+			--Set the flag for if we need to make changes
+			if connectionsnum ~= v[1] then
+				changesneeded = true;
+			end
+			--Increase the count and yield if it's a multiple of 5
+			count = count + 1;
+			if count%5 == 0 then
+				coroutine.yield(changesneeded);
+			end
 		end
 	end
 	coroutine.yield(changesneeded);
@@ -550,11 +554,13 @@ function AddMovatorNode(node)
 	if MovatorNodeTable[node.Team+3][node] == nil then
 		for teamKey, teamNodeTable in pairs(MovatorNodeTable) do
 			for nodeKey, nodeInfo in pairs(teamNodeTable) do
-				if nodeInfo.box ~= false then
-					local nodeBox = Box(Vector(node.Pos.X - node.Sharpness*0.5, node.Pos.Y - node.Sharpness*0.5) , Vector(node.Pos.X + node.Sharpness*0.5, node.Pos.Y + node.Sharpness*0.5));
-					if BoxesIntersect(nodeInfo.box, nodeBox) then
-						node.ToDelete = true;
-						return false;
+				if (type(nodeKey) ~= "string") then
+					if nodeInfo.box ~= false then
+						local nodeBox = Box(Vector(node.Pos.X - node.Sharpness*0.5, node.Pos.Y - node.Sharpness*0.5) , Vector(node.Pos.X + node.Sharpness*0.5, node.Pos.Y + node.Sharpness*0.5));
+						if BoxesIntersect(nodeInfo.box, nodeBox) then
+							node.ToDelete = true;
+							return false;
+						end
 					end
 				end
 			end
@@ -562,11 +568,7 @@ function AddMovatorNode(node)
 		MovatorNodeTable[node.Team+3][node] = {0, 0, a = {nil, 0}, b = {nil, 0}, l = {nil, 0}, r = {nil, 0}, box = false, sbox = false, area = {above = nil, left = nil}};
 		--Fill in the inputted movator node's information then return true so the zone knows it's good
 		if GenerateNodeInfo(node) then
-			if type(MovatorNodeTableCount[node.Team+3]) == "nil" then
-				MovatorNodeTableCount[node.Team+3] = 0;
-			else
-				MovatorNodeTableCount[node.Team+3] = MovatorNodeTableCount[node.Team+3] + 1;
-			end
+			MovatorNodeTable[node.Team+3].length = MovatorNodeTable[node.Team+3].length + 1;
 			return true;
 		end
 	end
@@ -604,7 +606,7 @@ function CheckConnections(node)
 	------------------------------------
 	--Add any nodes that have the same one pos the same but are half this' size plus half the other's size or more away in the other pos (i.e. same x, different y or vice-versa)
 	for k, v in pairs(mytable) do
-		if MovableMan:IsParticle(k) then --Make sure the movator node exists for safety
+		if (type(k) ~= "string" and MovableMan:IsParticle(k)) then --Make sure the movator node exists for safety
 			local short = SceneMan:ShortestDistance(node.Pos, k.Pos, MovatorCheckWrapping);
 			local xdist = short.X;
 			local ydist = short.Y;
@@ -693,7 +695,7 @@ function RemoveMovatorNode(node)
 				v.Sharpness = 100;
 			end
 		end
-		MovatorNodeTableCount[node.Team+3] = MovatorNodeTableCount[node.Team+3] - 1;
+		MovatorNodeTable[node.Team+3].length = MovatorNodeTable[node.Team+3].length - 1;
 	end
 end
 

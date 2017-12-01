@@ -189,8 +189,10 @@ function Update(self)
 	if UInputMan:KeyPressed(22) then
 		local count = 0;
 		for k, v in pairs(MovatorNodeTable[self.Team+3]) do
-			print("Tot - "..tostring(v[1]).."  Size - "..tostring(v[2]).."  A - "..tostring(v.a[2]).."  B - "..tostring(v.b[2]).."  L - "..tostring(v.l[2]).."  R - "..tostring(v.r[2]).." Boxes - "..type(v.box):sub(1, 3)..type(v.sbox):sub(1, 3).." Areas - "..type(v.area.above):sub(1, 3)..type(v.area.left):sub(1, 3).." Pos - "..tostring(k.Pos));
-			count = count+1;
+			if (type(k) ~= "string") then
+				print("Tot - "..tostring(v[1]).."  Size - "..tostring(v[2]).."  A - "..tostring(v.a[2]).."  B - "..tostring(v.b[2]).."  L - "..tostring(v.l[2]).."  R - "..tostring(v.r[2]).." Boxes - "..type(v.box):sub(1, 3)..type(v.sbox):sub(1, 3).." Areas - "..type(v.area.above):sub(1, 3)..type(v.area.left):sub(1, 3).." Pos - "..tostring(k.Pos));
+				count = count+1;
+			end
 		end
 		print ("Number of nodes in node table: "..tostring(count));
 	end
@@ -231,7 +233,9 @@ function Update(self)
 	if self.displayall == true then
 		ToGameActivity(ActivityMan:GetActivity()):ClearObjectivePoints();
 		for k, v in pairs(MovatorNodeTable[self.Team+3]) do
-			ToGameActivity(ActivityMan:GetActivity()):AddObjectivePoint(tostring(k.Pos), Vector(k.Pos.X, k.Pos.Y), self.Team, GameActivity.ARROWDOWN);
+			if (type(k) ~= "string") then
+				ToGameActivity(ActivityMan:GetActivity()):AddObjectivePoint(tostring(k.Pos), Vector(k.Pos.X, k.Pos.Y), self.Team, GameActivity.ARROWDOWN);
+			end
 		end
 	end
 	--Mouse based
@@ -376,13 +380,13 @@ function HandlePieButtons(self)
 			if self:GetController():IsState(Controller.SCROLL_UP) then
 				self.Speed = math.min(self.Speed + 1, self.MaxSpeed);
 			elseif self:GetController():IsState(Controller.SCROLL_DOWN) then
-				self.Speed = math.max(self.Speed - 1, self.MinSpeed = 4;);
+				self.Speed = math.max(self.Speed - 1, self.MinSpeed);
 			end
 		else
 			if self:GetController():IsState(Controller.HOLD_UP) then
 				self.Speed = math.min(self.Speed + 1, self.MaxSpeed);
 			elseif self:GetController():IsState(Controller.HOLD_DOWN) then
-				self.Speed = math.max(self.Speed - 1, self.MinSpeed = 4;);
+				self.Speed = math.max(self.Speed - 1, self.MinSpeed);
 			end
 		end
 	end
@@ -418,7 +422,7 @@ end
 -----------------------------------------------------------------------------------------
 function DoUI(self)
 	local textDataTable = {
-		"Controlled Movators: "..tostring(MovatorNodeTableCount[self.Team+3]),
+		"Controlled Movators: "..tostring(MovatorNodeTable[self.Team+3].length),
 		"Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length),
 		"Movator Accepts All Teams: "..tostring(self.AcceptAllActors),
 		"Movator Accepts Crafts: "..tostring(self.AcceptCrafts),
@@ -456,7 +460,7 @@ function NearestMovator(self, pos, checksight, pathchecker, inarea)
 	local mytable = MovatorNodeTable[self.Team+3];
 	local mypaths = MovatorPathTable[self.Team+3];
 	for k, v in pairs(mytable) do
-		if MovableMan:IsParticle(k) then
+		if (type(k) ~= "string" and MovableMan:IsParticle(k)) then
 			--Just check for distance if there's no node to check paths for, otherwise only check its distance if there's a path to it from pathchecker
 			if pathchecker == nil or (pathchecker ~= nil and mypaths[pathchecker] ~= nil and mypaths[pathchecker][k] ~= nil) then
 				--Find the shortest distance accounting for both x and y wrapping
