@@ -18,34 +18,30 @@ function CommandActivateMovatorController(self)
 		self:RemoveNumberValue("activated");
 	end
 end
-function CommandIncreaseMovatorSpeed(self)
-	if self:GetNumberValue("increaseSpeed") == 0 then
-		self:SetNumberValue("increaseSpeed", 1);
+function CommandModifyMovatorSpeed(self)
+	self:RemoveNumberValue("modifyMassLimit");
+	if self:GetNumberValue("modifySpeed") == 0 then
+		self:SetNumberValue("modifySpeed", 1);
+	else
+		self:RemoveNumberValue("modifySpeed");
 	end
 end
-function CommandDecreaseMovatorSpeed(self)
-	if self:GetNumberValue("decreaseSpeed") == 0 then
-		self:SetNumberValue("decreaseSpeed", 1);
-	end
-end
-function CommandSwapTeamActorAcceptance(self)
+function CommandSwapMovatorTeamActorAcceptance(self)
 	if self:GetNumberValue("swapTeamActorAcceptance") == 0 then
 		self:SetNumberValue("swapTeamActorAcceptance", 1);
 	end
 end
-function CommandSwapCraftAcceptance(self)
+function CommandSwapMovatorCraftAcceptance(self)
 	if self:GetNumberValue("swapCraftAcceptance") == 0 then
 		self:SetNumberValue("swapCraftAcceptance", 1);
 	end
 end
-function CommandIncreaseMovatorMassLimit(self)
-	if self:GetNumberValue("increaseMassLimit") == 0 then
-		self:SetNumberValue("increaseMassLimit", 1);
-	end
-end
-function CommandDecreaseMovatorMassLimit(self)
-	if self:GetNumberValue("decreaseMassLimit") == 0 then
-		self:SetNumberValue("decreaseMassLimit", 1);
+function CommandModifyMovatorMassLimit(self)
+	self:RemoveNumberValue("modifySpeed");
+	if self:GetNumberValue("modifyMassLimit") == 0 then
+		self:SetNumberValue("modifyMassLimit", 1);
+	else
+		self:RemoveNumberValue("modifyMassLimit");
 	end
 end
 
@@ -74,7 +70,8 @@ function Create(self)
 	--["act"] - the actor, ["dir] - their movement direction, ["prevdir"] - their previous movement direction, ["cnode"] - the node they should centre to, changed on direction change
 	--["stage"] - their movement stage, ["s"] - their start node, ["n"] - their next node in path, ["d"] - their destination node in path,
 	--["t"] - [1] - their closest waypoint, [2] -nil if it's scene or the actor if it's MO, [3]- a table of their remaining waypoints to be added back later or nil if they have an MO waypoint
-	self.MovatorAffectedActors = {length = 0};
+	self.MovatorAffectedActors = {};
+	self.MovatorAffectedActors.length = 0;
 	
 	--Boolean for whether or not this controller should be displaying its UI
 	self.DisplayingUI = false;
@@ -90,9 +87,13 @@ function Create(self)
 	
 	--Set the speed that the actors move at and the speed above which to slow down actors that are using the movator
 	self.Speed = 8;
+	self.MaxSpeed = 16;
+	self.MinSpeed = 4;
 	
 	--Set the mass limit this controller will accept, i.e. no actors heavier than this will work
 	self.MassLimit = 300;
+	self.MaxMassLimit = 1000;
+	self.MinMassLimit = 100;
 	
 	--Set the Y offset this controller will centre actors by, i.e. actor.Pos.Y = cnode.Pos.Y + actor.Height/self.CentreOffset
 	self.CentreOffset = 20;
@@ -237,13 +238,20 @@ function HandlePieButtons(self)
 		self.DisplayingUI = false;
 	end
 	
-	if self:GetNumberValue("increaseSpeed") > 0 then
-		self.Speed = math.min(self.Speed + 1, 16);
-		self:RemoveNumberValue("increaseSpeed");
-	end
-	if self:GetNumberValue("decreaseSpeed") > 0 then
-		self.Speed = math.max(self.Speed - 1, 4);
-		self:RemoveNumberValue("decreaseSpeed");
+	if self:GetNumberValue("modifySpeed") > 0 then
+		if self:GetController():IsMouseControlled() == true then
+			if self:GetController():IsState(Controller.SCROLL_UP) then
+				self.Speed = math.min(self.Speed + 1, self.MaxSpeed);
+			elseif self:GetController():IsState(Controller.SCROLL_DOWN) then
+				self.Speed = math.max(self.Speed - 1, self.MinSpeed = 4;);
+			end
+		else
+			if self:GetController():IsState(Controller.HOLD_UP) then
+				self.Speed = math.min(self.Speed + 1, self.MaxSpeed);
+			elseif self:GetController():IsState(Controller.HOLD_DOWN) then
+				self.Speed = math.max(self.Speed - 1, self.MinSpeed = 4;);
+			end
+		end
 	end
 	
 	if self:GetNumberValue("swapTeamActorAcceptance") > 0 then
@@ -255,13 +263,20 @@ function HandlePieButtons(self)
 		self:RemoveNumberValue("swapCraftAcceptance");
 	end
 	
-	if self:GetNumberValue("increaseMassLimit") > 0 then
-		self.MassLimit = math.min(self.MassLimit + 25, 1000);
-		self:RemoveNumberValue("increaseMassLimit");
-	end
-	if self:GetNumberValue("decreaseMassLimit") > 0 then
-		self.MassLimit = math.max(self.MassLimit - 25, 100);
-		self:RemoveNumberValue("decreaseMassLimit");
+	if self:GetNumberValue("modifyMassLimit") > 0 then
+		if self:GetController():IsMouseControlled() == true then
+			if self:GetController():IsState(Controller.SCROLL_UP) then
+				self.MassLimit = math.min(self.MassLimit + 25, self.MaxMassLimit);
+			elseif self:GetController():IsState(Controller.SCROLL_DOWN) then
+				self.MassLimit = math.max(self.MassLimit - 25, self.MinMassLimit);
+			end
+		else
+			if self:GetController():IsState(Controller.HOLD_UP) then
+				self.MassLimit = math.min(self.MassLimit + 25, self.MaxMassLimit);
+			elseif self:GetController():IsState(Controller.HOLD_DOWN) then
+				self.MassLimit = math.max(self.MassLimit - 25, self.MinMassLimit);
+			end
+		end
 	end
 end
 
@@ -277,6 +292,15 @@ function DoUI(self)
 		"Movator Speed: "..tostring(self.Speed),
 		"Movator Mass Limit: "..tostring(self.MassLimit)
 	}
+	if (self:GetNumberValue("modifySpeed") > 0) then
+		table.insert(textDataTable, 1, "-----------------------");
+		table.insert(textDataTable, 1, "--MODIFYING MOVATOR SPEED--");
+		table.insert(textDataTable, 1, "-----------------------");
+	elseif (self:GetNumberValue("modifyMassLimit") > 0) then
+		table.insert(textDataTable, 1, "--------------------------");
+		table.insert(textDataTable, 1, "--MODIFYING MOVATOR MASS LIMIT--");
+		table.insert(textDataTable, 1, "--------------------------");
+	end
 	local maxSizeBox = Vector(self.Pos.X, self.Pos.Y);--Box(Vector(self.Pos.X - 120, self.Pos.Y - 72), Vector(self.Pos.X + 120, self.Pos.Y + 72));
 	local config = {useSmallText = false, boxScalesToFitText = false, boxBGColour = 179, boxOutlineWidth = 1, boxOutlineColour = 254};
 	
