@@ -537,7 +537,16 @@ function DoMovatorConnectionObjectEffectsSetup(selectedSizeTableEntry, startNode
 			else
 				position = selectedNodeEntry[direction].objectLocations[i-1].position + generalOffset[direction];
 			end
-			if (direction == "a" and position.Y < (endNode.Pos.Y + endOffset[direction].Y) or position.X < (endNode.Pos.X + endOffset[direction].X)) then
+			if (MovatorCheckWrapping) then
+				if (position.X < 0) then
+					position.X = position.X + SceneMan.Scene.Width;
+				end
+				if (position.Y < 0) then
+					position.Y = position.Y + SceneMan.Scene.Height;
+				end
+			end
+			local accountForSeneWrapping = (startNode.Pos.X <= endNode.Pos.X and startNode.Pos.Y <= endNode.Pos.Y) and Vector(SceneMan.Scene.Width, SceneMan.Scene.Height) or Vector(0, 0);
+			if (direction == "a" and (position.Y + accountForSeneWrapping.Y) < (endNode.Pos.Y + endOffset[direction].Y) or (position.X + accountForSeneWrapping.X) < (endNode.Pos.X + endOffset[direction].X)) then
 				break;
 			end
 			selectedNodeEntry[direction].objectLocations[i] = {position = position, frame = selectedSizeTableEntry.minFrame - 1};
@@ -633,7 +642,18 @@ function DrawMovatorConnectionLineEffects(self, selectedSizeTableEntry, generalD
 							local lengthModifiers = {a = Vector(0, -lengthModifier), l = Vector(-lengthModifier, 0)};
 							local startOffset = direction == "a" and Vector(lineInfo.offset * i, -(generalDataTable.halfLineCapWidth - 1)) or Vector(-(generalDataTable.halfLineCapWidth - 1), lineInfo.offset * i);
 							local endOffset = direction == "a" and Vector(lineInfo.offset * i, (generalDataTable.halfLineCapWidth - 1)) or Vector((generalDataTable.halfLineCapWidth - 1), lineInfo.offset * i);
-							FrameMan:DrawLinePrimitive(lineStartAndEndPoints[direction].startPoint + startOffset, lineStartAndEndPoints[direction].endPoint + endOffset + lengthModifiers[direction], lineInfo.colour);
+							
+							local startPos = lineStartAndEndPoints[direction].startPoint + startOffset;
+							local endPos = lineStartAndEndPoints[direction].endPoint + endOffset + lengthModifiers[direction]
+							
+							--Check for scene wrapping
+							if (endPos.X > startPos.X or endPos.Y > startPos.Y) then
+								local drawToVectors = direction == "a" and {startTarget = Vector(startPos.X, 0), endTarget = Vector(startPos.X, SceneMan.Scene.Height)} or {startTarget = Vector(0, startPos.Y), endTarget = Vector(SceneMan.Scene.Width, startPos.Y)}; 
+								FrameMan:DrawLinePrimitive(startPos, drawToVectors.startTarget, lineInfo.colour);
+								FrameMan:DrawLinePrimitive(drawToVectors.endTarget, endPos, lineInfo.colour);
+							else
+								FrameMan:DrawLinePrimitive(startPos, endPos, lineInfo.colour);
+							end
 						end
 					end
 					local rotAngles = {a = {startPoint = math.rad(270), endPoint = math.rad(90)}, l = {startPoint = math.rad(0), endPoint = math.rad(180)}};
@@ -654,7 +674,7 @@ function CleanupCurrentMovatorObjectEffectsTableIfPossible(self)
 		local selectedSizeTableEntry = self.EffectsTable.displayTypes[self.EffectsTable.selectedType].sizes[self.EffectsTable.selectedSize];
 		local generalDataTable = self.EffectsTable.displayTypes[self.EffectsTable.selectedType].generalData;
 		
-		if (generalDataTable.type == "object") then
+		if (generalDataTable.displayType == "object") then
 			selectedSizeTableEntry.nodeEntries = {};
 		end
 	end
