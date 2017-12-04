@@ -11,11 +11,11 @@ dofile("Movator.rte/Scripts/GlobalUIFunctions.lua");
 -----------------------------------------------------------------------------------------
 -- Pie Menu
 -----------------------------------------------------------------------------------------
-function CommandActivateMovatorController(self)
-	if self:GetNumberValue("activated") == 0 then
-		self:SetNumberValue("activated", 1);
+function CommandDisplayMovatorInfo(self)
+	if self:GetNumberValue("displayingInfo") == 0 then
+		self:SetNumberValue("displayingInfo", 1);
 	else
-		self:RemoveNumberValue("activated");
+		self:RemoveNumberValue("displayingInfo");
 	end
 end
 function CommandModifyMovatorSpeed(self)
@@ -26,16 +26,6 @@ function CommandModifyMovatorSpeed(self)
 		self:RemoveNumberValue("modifySpeed");
 	end
 end
-function CommandSwapMovatorTeamActorAcceptance(self)
-	if self:GetNumberValue("swapTeamActorAcceptance") == 0 then
-		self:SetNumberValue("swapTeamActorAcceptance", 1);
-	end
-end
-function CommandSwapMovatorCraftAcceptance(self)
-	if self:GetNumberValue("swapCraftAcceptance") == 0 then
-		self:SetNumberValue("swapCraftAcceptance", 1);
-	end
-end
 function CommandModifyMovatorMassLimit(self)
 	self:RemoveNumberValue("modifySpeed");
 	if self:GetNumberValue("modifyMassLimit") == 0 then
@@ -43,6 +33,18 @@ function CommandModifyMovatorMassLimit(self)
 	else
 		self:RemoveNumberValue("modifyMassLimit");
 	end
+end
+function CommandSwapMovatorTeamActorAcceptance(self)
+	self:SetNumberValue("swapTeamActorAcceptance", 1);
+end
+function CommandSwapMovatorCraftAcceptance(self)
+	self:SetNumberValue("swapCraftAcceptance", 1);
+end
+function CommandModifyMovatorEffectsType(self)
+	self:SetNumberValue("modifyMovatorEffectsType", 1);
+end
+function CommandModifyMovatorEffectsSize(self)
+	self:SetNumberValue("modifyMovatorEffectsSize", 1);
 end
 
 -----------------------------------------------------------------------------------------
@@ -75,6 +77,113 @@ function Create(self)
 	
 	--Boolean for whether or not this controller should be displaying its UI
 	self.DisplayingUI = false;
+	--Table for handling movator effects
+	self.EffectsTable = {
+		directionsToUse = {"a", "l"},
+		displayTypes = {
+			line = {
+				generalData = {
+					displayType = "line",
+					nodeArrowDistanceFromEdge = 5,
+					halfLineCapWidth = 3,
+				},
+				sizes = {
+					{
+						lineCapObject = CreateMOSParticle("Movator LineCap", "Movator.rte"),
+						lineInfoTable = {{offset = 0.5, colour = 179}, {offset = 1.5, colour = 253}, {offset = 2.5, colour = 179}}
+					},
+					{
+						lineCapObject = CreateMOSParticle("Movator LineCap", "Movator.rte"),
+						lineInfoTable = {{offset = 0.5, colour = 179}, {offset = 1.5, colour = 179}, {offset = 2.5, colour = 253}, {offset = 3.5, colour = 179}}
+					},
+					{
+						lineCapObject = CreateMOSParticle("Movator LineCap", "Movator.rte"),
+						lineInfoTable = {{offset = 0.5, colour = 179, lengthModifier = 1}, {offset = 1.5, colour = 179}, {offset = 2.5, colour = 179, lengthModifier = -1}, {offset = 3.5, colour = 253}, {offset = 4.5,  colour = 179}}
+					}
+				}
+			},
+			chevron = {
+				generalData = {
+					displayType = "object",
+					minimumNumberOfSpacesNeededForDrawingObjectEffects = 3,
+					speedTimer = Timer()
+				},
+				sizes = {
+					{
+						object = CreateMOSParticle("Movator Chevron Small", "Movator.rte"),
+						objectSize = 16,
+						speed = 30,
+						coolDownInterval = 1000,
+						minFrame = 0,
+						maxFrame = 7,
+						previousObjectTriggerFrame = 1,
+						nodeEntries = {}
+					},
+					{
+						object = CreateMOSParticle("Movator Chevron Medium", "Movator.rte"),
+						objectSize = 32,
+						speed = 60,
+						coolDownInterval = 2000,
+						minFrame = 0,
+						maxFrame = 7,
+						previousObjectTriggerFrame = 1,
+						nodeEntries = {}
+					},
+					{
+						object = CreateMOSParticle("Movator Chevron Large", "Movator.rte"),
+						objectSize = 48,
+						speed = 80,
+						coolDownInterval = 3000,
+						minFrame = 0,
+						maxFrame = 7,
+						previousObjectTriggerFrame = 1,
+						nodeEntries = {}
+					}
+				}
+			},
+			chevron_narrow = {
+				generalData = {
+					displayType = "object",
+					minimumNumberOfSpacesNeededForDrawingObjectEffects = 3,
+					speedTimer = Timer()
+				},
+				sizes = {
+					{
+						object = CreateMOSParticle("Movator Chevron Small", "Movator.rte"),
+						objectSize = 5.33,
+						speed = 5,
+						coolDownInterval = 1000,
+						minFrame = 0,
+						maxFrame = 7,
+						previousObjectTriggerFrame = 1,
+						nodeEntries = {}
+					},
+					{
+						object = CreateMOSParticle("Movator Chevron Medium", "Movator.rte"),
+						objectSize = 10.67,
+						speed = 30,
+						coolDownInterval = 2000,
+						minFrame = 0,
+						maxFrame = 7,
+						previousObjectTriggerFrame = 1,
+						nodeEntries = {}
+					},
+					{
+						object = CreateMOSParticle("Movator Chevron Large", "Movator.rte"),
+						objectSize = 16,
+						speed = 55,
+						coolDownInterval = 3000,
+						minFrame = 0,
+						maxFrame = 7,
+						previousObjectTriggerFrame = 1,
+						nodeEntries = {}
+					}
+				}
+			}
+		},
+		selectedType = "chevron",
+		selectedSize = 1
+	}
 	
 	--Boolean for whether or not this controller will move actors of any team or only its own
 	self.AcceptAllActors = false;
@@ -353,9 +462,9 @@ function Update(self)
 			end
 			self.ActorMovementLagTimer:Reset();
 		end
+		DoEffects(self);
 	end
 	
-	DoEffects(self);
 	--Now that everything else is done, handle UI
 	if (self.DisplayingUI) then
 		self.Frame = 1;
@@ -369,7 +478,7 @@ end
 -- Look for values set by Pie Button presses and handle them accordingly
 -----------------------------------------------------------------------------------------
 function HandlePieButtons(self)
-	if self:GetNumberValue("activated") > 0 then
+	if self:GetNumberValue("displayingInfo") > 0 then
 		self.DisplayingUI = true;
 	else
 		self.DisplayingUI = false;
@@ -390,16 +499,6 @@ function HandlePieButtons(self)
 			end
 		end
 	end
-	
-	if self:GetNumberValue("swapTeamActorAcceptance") > 0 then
-		self.AcceptAllActors = not self.AcceptAllActors;
-		self:RemoveNumberValue("swapTeamActorAcceptance");
-	end
-	if self:GetNumberValue("swapCraftAcceptance") > 0 then
-		self.AcceptCrafts = not self.AcceptCrafts;
-		self:RemoveNumberValue("swapCraftAcceptance");
-	end
-	
 	if self:GetNumberValue("modifyMassLimit") > 0 then
 		if self:GetController():IsMouseControlled() == true then
 			if self:GetController():IsState(Controller.SCROLL_UP) then
@@ -415,20 +514,60 @@ function HandlePieButtons(self)
 			end
 		end
 	end
+	
+	if self:GetNumberValue("swapTeamActorAcceptance") > 0 then
+		self.AcceptAllActors = not self.AcceptAllActors;
+		self:RemoveNumberValue("swapTeamActorAcceptance");
+	end
+	if self:GetNumberValue("swapCraftAcceptance") > 0 then
+		self.AcceptCrafts = not self.AcceptCrafts;
+		self:RemoveNumberValue("swapCraftAcceptance");
+	end
+	
+	if self:GetNumberValue("modifyMovatorEffectsType") > 0 then
+		CleanupCurrentMovatorObjectEffectsTableIfPossible(self);
+		local displayTypes = {""};
+		for k, _ in pairs(self.EffectsTable.displayTypes) do
+			displayTypes[#displayTypes+1] = k;
+		end
+		
+		for i, v in ipairs(displayTypes) do
+			if (v == self.EffectsTable.selectedType) then
+				self.EffectsTable.selectedType = displayTypes[((i % #displayTypes) + 1)];
+				break;
+			end
+		end
+		self:RemoveNumberValue("modifyMovatorEffectsType");
+	end
+	if self:GetNumberValue("modifyMovatorEffectsSize") > 0 then
+		CleanupCurrentMovatorObjectEffectsTableIfPossible(self);
+		local maxSize = 3;
+		self.EffectsTable.selectedSize = (self.EffectsTable.selectedSize % maxSize) + 1;
+		self:RemoveNumberValue("modifyMovatorEffectsSize");
+	end
 end
 
 -----------------------------------------------------------------------------------------
 -- UI for players to let them manage movator options
 -----------------------------------------------------------------------------------------
 function DoUI(self)
+	local formattedEffectsNameTable = {
+		displayTypes = {[""] = "None", line = "Line", chevron = "Pulse", chevron_narrow = "Tight Pulse"},
+		sizes = {"Small", "Medium", "Large"}
+	}
 	local textDataTable = {
 		"Controlled Movators: "..tostring(MovatorNodeTable[self.Team+3].length),
 		"Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length),
 		"Movator Accepts All Teams: "..tostring(self.AcceptAllActors),
 		"Movator Accepts Crafts: "..tostring(self.AcceptCrafts),
 		"Movator Speed: "..tostring(self.Speed),
-		"Movator Mass Limit: "..tostring(self.MassLimit)
+		"Movator Mass Limit: "..tostring(self.MassLimit),
+		"Selected Effects Type: "..formattedEffectsNameTable.displayTypes[self.EffectsTable.selectedType]
 	}
+	if (self.EffectsTable.selectedType ~= "") then
+		textDataTable[#textDataTable + 1] = "Selected Effects Size: "..formattedEffectsNameTable.sizes[self.EffectsTable.selectedSize];
+	end
+	
 	if (self:GetNumberValue("modifySpeed") > 0) then
 		table.insert(textDataTable, 1, "-----------------------");
 		table.insert(textDataTable, 1, "--MODIFYING MOVATOR SPEED--");
@@ -439,16 +578,219 @@ function DoUI(self)
 		table.insert(textDataTable, 1, "--------------------------");
 	end
 	local maxSizeBox = Vector(self.Pos.X, self.Pos.Y);--Box(Vector(self.Pos.X - 120, self.Pos.Y - 72), Vector(self.Pos.X + 120, self.Pos.Y + 72));
-	local config = {useSmallText = false, boxScalesToFitText = false, boxBGColour = 179, boxOutlineWidth = 1, boxOutlineColour = 254};
+	local config = {useSmallText = false, boxBGColour = 179, boxOutlineWidth = 1, boxOutlineColour = 254};
 	
 	DrawTextBox(textDataTable, maxSizeBox, config);
 end
 
 -----------------------------------------------------------------------------------------
--- Effects for connections between Movators
+-- Effects for connections between movator nodes
 -----------------------------------------------------------------------------------------
 function DoEffects(self)
-	--FrameMan:DrawLinePrimitive()
+	if (self.EffectsTable.selectedType == "") then
+		return;
+	end
+	
+	local selectedSizeTableEntry = self.EffectsTable.displayTypes[self.EffectsTable.selectedType].sizes[self.EffectsTable.selectedSize];
+	local generalDataTable = self.EffectsTable.displayTypes[self.EffectsTable.selectedType].generalData;
+	if (generalDataTable.displayType == "line") then
+		DrawMovatorConnectionLineEffects(self, selectedSizeTableEntry, generalDataTable);
+	else
+		DrawMovatorConnectionObjectEffects(self, selectedSizeTableEntry, generalDataTable);
+	end
+end
+
+-----------------------------------------------------------------------------------------
+-- Return whether or not effects should be drawn between the two movator nodes
+-----------------------------------------------------------------------------------------
+function ShouldDrawEffects(self, startNodeData, endNodeData, direction, selectedSizeTableEntry, generalDataTable)
+	local nodeInDirection = startNodeData[direction][1];
+	if (type(nodeInDirection) ~= "nil") then
+		local minDistanceToShowEffects = startNodeData[2] + endNodeData[2];
+		if (generalDataTable.displayType == "object") then
+			minDistanceToShowEffects = minDistanceToShowEffects + selectedSizeTableEntry.objectSize * generalDataTable.minimumNumberOfSpacesNeededForDrawingObjectEffects;
+		end
+		if (startNodeData[direction][2] >= minDistanceToShowEffects) then
+			return true;
+		end
+	end
+	return false;
+end
+
+-----------------------------------------------------------------------------------------
+-- Determine positions for and draw movator object effects based on what's selected
+-----------------------------------------------------------------------------------------
+function DrawMovatorConnectionObjectEffects(self, selectedSizeTableEntry, generalDataTable)
+	if (generalDataTable.speedTimer:IsPastSimMS(selectedSizeTableEntry.speed)) then
+		for startNode, startNodeData in pairs(MovatorNodeTable[self.Team+3]) do
+			if (type(startNode) ~= "string") then
+				for _, direction in ipairs(self.EffectsTable.directionsToUse) do
+					local endNode = startNodeData[direction][1];
+					local endNodeData = MovatorNodeTable[self.Team+3][endNode];
+					if (ShouldDrawEffects(self, startNodeData, endNodeData, direction, selectedSizeTableEntry, generalDataTable)) then
+						DoMovatorConnectionObjectEffectsSetup(selectedSizeTableEntry, startNode, startNodeData, endNode, endNodeData, direction);
+						DoMovatorConnectionObjectEffectsActions(selectedSizeTableEntry, generalDataTable, startNode, direction);
+					end
+				end
+			end
+		end
+		generalDataTable.speedTimer:Reset();
+	end
+	DisplayMovatorConnectionObjectEffects(self, selectedSizeTableEntry);
+end
+
+-----------------------------------------------------------------------------------------
+-- Setup movator object effects based on what's selected
+-----------------------------------------------------------------------------------------
+function DoMovatorConnectionObjectEffectsSetup(selectedSizeTableEntry, startNode, startNodeData, endNode, endNodeData, direction)
+	if (type(selectedSizeTableEntry.nodeEntries[startNode]) == "nil") then
+		selectedSizeTableEntry.nodeEntries[startNode] = {};
+	end
+	--Set or reset the object values for this node and direction
+	local selectedNodeEntry = selectedSizeTableEntry.nodeEntries[startNode];
+	if (type(selectedNodeEntry[direction]) == "nil" or selectedNodeEntry[direction].endNode ~= endNode) then
+		selectedNodeEntry[direction] = {
+			coolDownTimer = Timer(),
+			isGoingBackwards = false,
+			endNode = endNode,
+			objectLocations = {}
+		};
+		
+		local maxObjects, halfRemainderDistance = math.modf(startNodeData[direction][2]/selectedSizeTableEntry.objectSize);
+		halfRemainderDistance = halfRemainderDistance * selectedSizeTableEntry.objectSize * 0.5;
+		
+		local startOffset = {a = Vector(0, -(selectedSizeTableEntry.objectSize * 0.5 + startNodeData[2] * 0.5 + halfRemainderDistance)), l = Vector(-(selectedSizeTableEntry.objectSize * 0.5 + startNodeData[2] * 0.5 + halfRemainderDistance), 0)};
+		local generalOffset = {a = Vector(0, -selectedSizeTableEntry.objectSize), l = Vector(-selectedSizeTableEntry.objectSize, 0)};
+		local endOffset = {a = Vector(0, selectedSizeTableEntry.objectSize * 0.5 + endNodeData[2] * 0.5 + halfRemainderDistance), l = Vector(selectedSizeTableEntry.objectSize * 0.5 + endNodeData[2] * 0.5 + halfRemainderDistance, 0)};
+		
+		for i = 1, maxObjects do
+			local position = Vector(0,0);
+			if (i == 1) then
+				position = startNode.Pos + startOffset[direction];
+			else
+				position = selectedNodeEntry[direction].objectLocations[i-1].position + generalOffset[direction];
+			end
+			if (direction == "a" and position.Y < (endNode.Pos.Y + endOffset[direction].Y) or position.X < (endNode.Pos.X + endOffset[direction].X)) then
+				break;
+			end
+			selectedNodeEntry[direction].objectLocations[i] = {position = position, frame = selectedSizeTableEntry.minFrame - 1};
+		end
+	end
+end
+
+-----------------------------------------------------------------------------------------
+-- Update frames and positions for movator object effects based on what's selected
+-----------------------------------------------------------------------------------------
+function DoMovatorConnectionObjectEffectsActions(selectedSizeTableEntry, generalDataTable, startNode, direction)
+	local selectedNodeAndDirectionEntry = selectedSizeTableEntry.nodeEntries[startNode][direction];
+	if (selectedNodeAndDirectionEntry.coolDownTimer:IsPastSimMS(selectedSizeTableEntry.coolDownInterval)) then
+		local indices = {1, #selectedNodeAndDirectionEntry.objectLocations};
+		local startIndex = selectedNodeAndDirectionEntry.isGoingBackwards and indices[2] or indices[1];
+		local endIndex = selectedNodeAndDirectionEntry.isGoingBackwards and indices[1] or indices[2];
+		local i = startIndex;
+		repeat
+			local currentObjectLocation = selectedNodeAndDirectionEntry.objectLocations[i];
+			if ((i == startIndex or currentObjectLocation.frame >= selectedSizeTableEntry.minFrame) and currentObjectLocation.frame <= selectedSizeTableEntry.maxFrame) then
+				if (i ~= startIndex and i ~= endIndex and currentObjectLocation.frame == selectedSizeTableEntry.maxFrame) then
+					currentObjectLocation.frame = selectedSizeTableEntry.minFrame - 1;
+				else
+					currentObjectLocation.frame = currentObjectLocation.frame + 1;
+				end
+			elseif (i ~= startIndex and currentObjectLocation.frame < selectedSizeTableEntry.minFrame) then
+				local previousIndex = selectedNodeAndDirectionEntry.isGoingBackwards and i+1 or i-1;
+				local previousObjectLocation = selectedNodeAndDirectionEntry.objectLocations[previousIndex];
+				if (previousObjectLocation.frame == selectedSizeTableEntry.previousObjectTriggerFrame) then
+					currentObjectLocation.frame = selectedSizeTableEntry.minFrame;
+				end
+			end
+			i = i + (selectedNodeAndDirectionEntry.isGoingBackwards and -1 or 1);
+		until (i == endIndex + (selectedNodeAndDirectionEntry.isGoingBackwards and -1 or 1)); --Need to have +/- 1 here because it ends as soon as the condition is satisfied
+		
+		if (selectedNodeAndDirectionEntry.objectLocations[endIndex].frame > selectedSizeTableEntry.maxFrame) then
+			selectedNodeAndDirectionEntry.isGoingBackwards = not selectedNodeAndDirectionEntry.isGoingBackwards;
+			selectedNodeAndDirectionEntry.objectLocations[startIndex].frame = selectedSizeTableEntry.minFrame - 1;
+			selectedNodeAndDirectionEntry.objectLocations[endIndex].frame = selectedSizeTableEntry.minFrame - 1;
+			selectedNodeAndDirectionEntry.coolDownTimer:Reset();
+			return;
+		end
+	end
+end
+
+-----------------------------------------------------------------------------------------
+-- Draw movator object connection effects based on what's selected
+-----------------------------------------------------------------------------------------
+function DisplayMovatorConnectionObjectEffects(self, selectedSizeTableEntry)
+	for startNode, startNodeData in pairs(MovatorNodeTable[self.Team+3]) do
+		if (type(startNode) ~= "string" and type(selectedSizeTableEntry.nodeEntries[startNode]) ~= "nil") then
+			for _, direction in ipairs(self.EffectsTable.directionsToUse) do
+				local selectedNodeAndDirectionEntry = selectedSizeTableEntry.nodeEntries[startNode][direction];
+				if (type(selectedNodeAndDirectionEntry) ~= "nil") then
+					local rotAngles = {a = {[true] = math.rad(270), [false] = math.rad(90)}, l = {[true] = 0, [false] = math.rad(180)}};
+					for _, objectLocation in ipairs(selectedNodeAndDirectionEntry.objectLocations) do
+						if (selectedSizeTableEntry.minFrame <= objectLocation.frame and objectLocation.frame <= selectedSizeTableEntry.maxFrame) then
+							FrameMan:DrawBitmapPrimitive(objectLocation.position, selectedSizeTableEntry.object, rotAngles[direction][selectedNodeAndDirectionEntry.isGoingBackwards], objectLocation.frame);
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+-----------------------------------------------------------------------------------------
+-- Determine positions for and draw movator line effects based on what's selected
+-----------------------------------------------------------------------------------------
+function DrawMovatorConnectionLineEffects(self, selectedSizeTableEntry, generalDataTable)
+	for startNode, startNodeData in pairs(MovatorNodeTable[self.Team+3]) do
+		if (type(startNode) ~= "string") then
+			for _, direction in ipairs(self.EffectsTable.directionsToUse) do
+				local endNode = startNodeData[direction][1];
+				local endNodeData = MovatorNodeTable[self.Team+3][endNode];
+				if (ShouldDrawEffects(self, startNodeData, endNodeData, direction, selectedSizeTableEntry, generalDataTable)) then
+					local lineStartAndEndPoints = {
+						a = {
+							startPoint = Vector(startNode.Pos.X, startNode.Pos.Y - startNodeData[2] * 0.5 + generalDataTable.nodeArrowDistanceFromEdge - generalDataTable.halfLineCapWidth),
+							endPoint = Vector(endNode.Pos.X, endNode.Pos.Y + endNodeData[2] * 0.5 - generalDataTable.nodeArrowDistanceFromEdge + generalDataTable.halfLineCapWidth)
+						},
+						l = {
+							startPoint = Vector(startNode.Pos.X - startNodeData[2] * 0.5 + generalDataTable.nodeArrowDistanceFromEdge - generalDataTable.halfLineCapWidth, startNode.Pos.Y),
+							endPoint = Vector(endNode.Pos.X + endNodeData[2] * 0.5 - generalDataTable.nodeArrowDistanceFromEdge + generalDataTable.halfLineCapWidth, endNode.Pos.Y)
+						}
+					}
+					for _, lineInfo in ipairs(selectedSizeTableEntry.lineInfoTable) do
+						for i = -1, 1, 2 do
+							local lengthModifier = lineInfo.lengthModifier;
+							if (type(lengthModifier) == "nil") then
+								lengthModifier = 0;
+							end
+							local lengthModifiers = {a = Vector(0, -lengthModifier), l = Vector(-lengthModifier, 0)};
+							local startOffset = direction == "a" and Vector(lineInfo.offset * i, -(generalDataTable.halfLineCapWidth - 1)) or Vector(-(generalDataTable.halfLineCapWidth - 1), lineInfo.offset * i);
+							local endOffset = direction == "a" and Vector(lineInfo.offset * i, (generalDataTable.halfLineCapWidth - 1)) or Vector((generalDataTable.halfLineCapWidth - 1), lineInfo.offset * i);
+							FrameMan:DrawLinePrimitive(lineStartAndEndPoints[direction].startPoint + startOffset, lineStartAndEndPoints[direction].endPoint + endOffset + lengthModifiers[direction], lineInfo.colour);
+						end
+					end
+					local rotAngles = {a = {startPoint = math.rad(270), endPoint = math.rad(90)}, l = {startPoint = math.rad(0), endPoint = math.rad(180)}};
+					for k, point in pairs(lineStartAndEndPoints[direction]) do
+						FrameMan:DrawBitmapPrimitive(point, selectedSizeTableEntry.lineCapObject, rotAngles[direction][k], 0);
+					end
+				end
+			end
+		end
+	end
+end
+
+-----------------------------------------------------------------------------------------
+-- Clean up data tables for current object effects if possible, needs to be called when switching size or type
+-----------------------------------------------------------------------------------------
+function CleanupCurrentMovatorObjectEffectsTableIfPossible(self)
+	if (self.EffectsTable.selectedType ~= "") then
+		local selectedSizeTableEntry = self.EffectsTable.displayTypes[self.EffectsTable.selectedType].sizes[self.EffectsTable.selectedSize];
+		local generalDataTable = self.EffectsTable.displayTypes[self.EffectsTable.selectedType].generalData;
+		
+		if (generalDataTable.type == "object") then
+			selectedSizeTableEntry.nodeEntries = {};
+		end
+	end
 end
 
 -----------------------------------------------------------------------------------------
