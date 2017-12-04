@@ -52,10 +52,10 @@ end
 -----------------------------------------------------------------------------------------
 function Create(self)
 	--Before we do anything else, check for any other movator controllers on this team and if they exist, delete them and refund the player their cost
-	for p in MovableMan.Particles do
-		if p.PresetName == "Movator Controller" and p.Team == self.Team and p.ID ~= self.ID then
-			ActivityMan:GetActivity():SetTeamFunds(ActivityMan:GetActivity():GetTeamFunds(self.Team) + p:GetGoldValue(0,0), self.Team);
-			p.ToDelete = true;
+	for a in MovableMan.Actors do
+		if a.PresetName == "Movator Controller" and a.Team == self.Team and a.ID ~= self.ID then
+			ActivityMan:GetActivity():SetTeamFunds(ActivityMan:GetActivity():GetTeamFunds(self.Team) + a:GetGoldValue(0,0), self.Team);
+			a.ToDelete = true;
 		end
 	end
 
@@ -63,6 +63,9 @@ function Create(self)
 	ResetMovatorVariables(self.Team)
 	--Global variable for reading if nodes have power TODO make this an actual power system
 	MovatorPowerValues[self.Team+3] = 100;
+	
+	--Make sure this handles movators already added before it
+	RecheckAllMovators(self.Team)
 	
 	--Coroutines for 1. Creating the path table for this team, 2. Checking for obstructions between movators for this team
 	self.PathRoutine = coroutine.create(AddAllPaths);
@@ -268,12 +271,6 @@ function Update(self)
 			end
 		end
 		self.MovatorAffectedActors = {};
-		
-		for p in MovableMan.Particles do
-			if p.PresetName:find("Movator Line") ~= nil and p.Team == team then
-				p.ToDelete = true;
-			end
-		end
 		
 		PresetMan:ReloadAllScripts();
 		print ("All scripts reloaded");
@@ -798,7 +795,7 @@ end
 -----------------------------------------------------------------------------------------
 function NearestMovator(self, pos, checksight, pathchecker, inarea)
 	local closest = nil;
-	local dist1 = 1000000000;
+	local dist1 = math.huge;
 	local mytable = MovatorNodeTable[self.Team+3];
 	local mypaths = MovatorPathTable[self.Team+3];
 	for k, v in pairs(mytable) do
@@ -1321,6 +1318,14 @@ function DoMovements(self, actor, dir, prevdir, cnode)
 				print ("Centring error, no node found, defaulting to simple closest");
 				cnode = NearestMovator(self, actor.Pos, true, nil, nil);
 			end
+			--If we still can't find a node, make the actor flash white and drop it out of the movator network
+			if (cnode == nil) then
+				actor:FlashWhite(300);
+				actor:MoveOutOfTerrain(0);
+				print("Could not find a node for actor "..actor.PresetName.." to center on. Trying to move it out of terrain and dropping it out of the movator network");
+				self.MovatorAffectedActors[actor.Lifetime].dir = 5;
+				return;
+			end
 			iscentred = false;
 		end
 		--If the actor is not centred, centre him
@@ -1439,8 +1444,21 @@ end
 -- Destroy
 -----------------------------------------------------------------------------------------
 function Destroy(self)
-	--Reset the global movator variables for this controller's team
+	--Fix actor lifetimes (TODO this lifetime business should be replaced by number values on actors by the way)
+	for k, v in pairs(self.MovatorAffectedActors) do 
+		if type (k) ~= "string" then
+			v.act.Lifetime = 0;
+		end
+	end
+	
+	--Only reset movator variables and power values if there's no replacement movator
+	for a in MovableMan.Actors do
+		if a.PresetName == "Movator Controller" and a.Team == self.Team and a.ID ~= self.ID then
+			return;
+		end
+	end
 	ResetMovatorVariables(self.Team);
+	MovatorPowerValues[self.Team+3] = 0;
 end
 
 --Mouse stuff

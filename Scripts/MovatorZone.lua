@@ -10,7 +10,8 @@ function Create(self)
 	self.CheckNodesTimer = Timer();
 	self.CheckNodesInterval = 500*math.random(1,4);
 	self.MyInfoGenerated = AddMovatorNode(self);
-	self.MySize = self.Sharpness;
+	
+	self:RemoveNumberValue("shouldReaddNode");
 end
 -----------------------------------------------------------------------------------------
 -- Update
@@ -20,10 +21,11 @@ function Update(self)
 	if UInputMan:KeyPressed(3) then
 		--self:ReloadScripts();
 	end
+	
 	--Check if we should readd this node
-	if self.Sharpness == 100 then
-		self.Sharpness = self.MySize;
+	if (self:GetNumberValue("shouldReaddNode") > 0) then
 		self.MyInfoGenerated = AddMovatorNode(self);
+		self:RemoveNumberValue("shouldReaddNode");
 	end
 	
 	--Do visual effects so movator nodes look different depending on what sides they have other movators on
