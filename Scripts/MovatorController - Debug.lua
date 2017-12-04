@@ -906,7 +906,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 		--Starting--
 		------------
 		--Set our target if we don't have one already and the actor should actually be going somewhere, not being an engine buggy little shit
-		if target[1] == nil and (actor.AIMode == Actor.AIMODE_GOTO or actor.AIMode == Actor.AIMODE_BRAINHUNT or actor.AIMode == Actor.AIMODE_SQUAD) then
+		if target[1] == nil and target[2] == nil and (actor.AIMode == Actor.AIMODE_GOTO or actor.AIMode == Actor.AIMODE_BRAINHUNT or actor.AIMode == Actor.AIMODE_SQUAD) then
 
 			print (tostring(target[1]).."  "..tostring(actor:GetLastAIWaypoint()).."  "..tostring(actor:GetLastAIWaypoint()).."  "..tostring(actor.Pos).." No waypoint or waypoint changed!");
 			--Get the first actor waypoint and, if it's MO, the target actor
@@ -920,7 +920,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 				target[2] = {MO = actor.MOMoveTarget, mode = actor.AIMode};
 			end
 			--Get the list of remaining waypoints if we don't have an MO waypoint and our waypoint isn't in the movator area and we have more than one waypoint
-			if target[2] == nil and CombinedMovatorArea[self.Team+3]:IsInside(target[1]) == false and target[1] ~= actor:GetLastAIWaypoint() then
+			if target[2] == nil and target[1] ~= nil and CombinedMovatorArea[self.Team+3]:IsInside(target[1]) == false and target[1] ~= actor:GetLastAIWaypoint() then
 				local ept = nil;
 				--While we still have more waypoints to add
 				while actor.MovePathSize > 0 and ept ~= actor:GetLastAIWaypoint() do
@@ -1158,7 +1158,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 				end
 				
 				--If we've got a waypoint inside the movator area, figure out which way to send the actor
-				if CombinedMovatorArea[self.Team+3]:IsInside(target[1]) then
+				if target[1] ~= nil and CombinedMovatorArea[self.Team+3]:IsInside(target[1]) then
 					--Pick the farther direction for this
 					--Vertical
 					if sizey > sizex then
@@ -1228,18 +1228,22 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 				local retarget = 0;
 				if type(target[2]) ~= "nil" then
 					local dist = SceneMan:ShortestDistance(actor.Pos,target[2].MO.Pos,MovatorCheckWrapping);
-					local sizex = math.abs(dist.X); local sizey = math.abs(dist.Y);
 					--Set a flag for if the actor's far enough away to retarget
-					if math.max(sizex, sizey) > self.ActorTargetRange then
+					if math.max(math.abs(dist.X), math.abs(dist.Y)) > self.ActorTargetRange then
 						retarget = 2;
 					else
+						--For close targets, go into squad mode so you the squad can shoot together
+						if (actor.AIMode ~= Actor.AIMODE_SQUAD) then
+							actor.MOMoveTarget = target[2].MO;
+							actor.AIMode = Actor.AIMODE_SQUAD;
+						end
 						retarget = 1;
 					end
 					--ToGameActivity(ActivityMan:GetActivity()):AddObjectivePoint(tostring(retarget).." target dist "..tostring(math.max(sizex, sizey)), Vector(actor.Pos.X, actor.Pos.Y + 20), self.Team, GameActivity.ARROWUP);
 				end
 				--If it's an MO waypoint, check if we should get moving again
 				if retarget > 0 then
-					--If we  should get moving, add the target MO's current position as our target and reset the variables so we start over
+					--If we  should get moving, add the target MO as our target and reset the variables so we start over
 					if retarget == 2 then
 						actor:AddAIMOWaypoint(target[2].MO);
 						actor.AIMode = target[2].mode;
