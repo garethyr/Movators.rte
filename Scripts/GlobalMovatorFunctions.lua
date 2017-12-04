@@ -9,8 +9,8 @@ if not GlobalMovatorVariablesMade then
 	MovatorPathTable = {};
 	CombinedMovatorArea = {};
 	MovatorCheckWrapping = false;
-	MovatorDrawConnectingLines = false;
 	MovatorAllNodesGenerated = false;
+	MovatorDefaultNodeSize = 48;
 	GlobalMovatorVariablesMade = true;
 	print ("Global Movator Variables Made");
 end
@@ -112,141 +112,6 @@ function AddAllBoxes(team)
 		end
 	end
 	return true;
-end
---Function to toggle whether lines should be drawn or not
-function MovatorToggleLines()
-	MovatorDrawConnectingLines = not MovatorDrawConnectingLines;
-	if MovatorDrawConnectingLines == false then
-		--Clean up all connecting lines
-		for p in MovableMan.Particles do
-			if p.PresetName:find("Movator Line") ~= nil then
-				p.ToDelete = true;
-			end
-		end
-	elseif MovatorDrawConnectingLines == true then
-		for team, n in pairs(MovatorNodeTable) do
-			for start, v in pairs(n) do
-				if (type(start) ~= "string") then
-					local count = 0;
-					--Do a loop checking vertical and horizontal connecting nodes
-					local t = {"a", "l"};
-					for i = 1, 2 do
-						--Only do stuff if we have a node above or to the left
-						if v[t[i]][1] ~= nil then
-							local dest = v[t[i]][1];
-							--If our dest's position is greater than our start's, it's wrapped so draw lines thusly
-							if dest.Pos.X > start.Pos.X or dest.Pos.Y > start.Pos.Y  then
-								AddConnectionLines(team, start.Pos, dest.Pos, v[2]*0.5, n[dest][2]*0.5, count, true);
-							--Otherwise, draw them without accounting for wrapping
-							else
-								AddConnectionLines(team, start.Pos, dest.Pos, v[2]*0.5, n[dest][2]*0.5, count, false);
-							end
-						end
-						count = count+1;
-					end
-				end
-			end
-		end
-	end
-end
---Function to draw the lines between movators, arguments: team, start and end positions, sizes of start and end movators, direction type - 0 if vertical and 1 if horizontal, wraps true if lines have to be drawn across the scene wrap point
-function AddConnectionLines(team, start, dest, size1, size2, dtype, wraps)
-	local dist, dist2, lineangle, linepos;
-	local framedists = {1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 24, 48, 96, 192, 384, 768, 1536};
-	local expectedsize = 14;
-	local linelist = {}; --The list of lines to add, values: [1] - the line's frame, [2] - the line's position
-	--Do setup for vertical/horizontal lines
-	if dtype == 0 then
-		--Deal with wrapping, split the line drawing into two subsections so they draw across the wrap point properly
-		if wraps == false then
-			dist = math.abs(SceneMan:ShortestDistance(start,dest,SceneMan.SceneWrapsY).Y) - (size1 + size2);
-		else
-			dist = math.abs(SceneMan:ShortestDistance(start, Vector(start.X, 0), false).Y) - size1;
-			dist2 = math.abs(SceneMan:ShortestDistance(Vector(start.X, SceneMan.SceneHeight), dest, false).Y) - size2;
-		end
-		lineangle = math.rad(90);
-		linepos = Vector(start.X, start.Y - size1);
-	else
-		--Deal with wrapping, split the line drawing into two subsections so they draw across the wrap point properly
-		if wraps == false then
-			dist = math.abs(SceneMan:ShortestDistance(start,dest,SceneMan.SceneWrapsX).X) - (size1 + size2);
-		else
-			dist = math.abs(SceneMan:ShortestDistance(start, Vector(0, start.Y), false).X) - size1;
-			dist2 = math.abs(SceneMan:ShortestDistance(Vector(SceneMan.SceneWidth, start.Y), dest, false).X) - size2;
-		end
-		lineangle = math.rad(180);
-		linepos = Vector(start.X - size1, start.Y);
-	end
-	
-	local count = 0;
-	while dist ~= nil and count < 2 do
-		--We get the lines to add by subtracting repeatedly from the total until it's at 0
-		while dist > 0 do
-			--If our distance is bigger than the expected one, keep moving to the next size up until we find the right one
-			if (dist - framedists[expectedsize]) >= 0 then
-				--Until we find a value bigger than the distance or max out the table, keep increasing expectations
-				while (dist - framedists[expectedsize+1]) > 0 and expectedsize < #framedists do
-					expectedsize = expectedsize + 1;
-					if expectedsize == 17 then
-						break;
-					end
-				end
-				--Now that we have the right value, subtract it from dist, drop expectedsize by one, add a line to the list and change the position for the next line
-				dist = dist - framedists[expectedsize];
-				linelist[#linelist+1] = {expectedsize-1, linepos};
-				linepos = Vector(linepos.X, linepos.Y - framedists[expectedsize]); --Vertical
-				if dtype == 1 then --Horizontal
-					linepos = Vector(linepos.X - framedists[expectedsize], start.Y);
-				end
-				expectedsize = expectedsize - 1;
-			--Otherwise, drop down one and repeat the loop
-			else
-				expectedsize = expectedsize - 1;
-				if expectedsize == 0 then
-					return;
-				end
-			end
-		end
-		dist = dist2;
-		count = count + 1;
-	end
-	
-	--Now add the actual lines
-	local line;
-	for i = 1, #linelist do
-		line = CreateMOSRotating("Movator Line" , "Movator.rte");
-		line.Team = team;
-		line.Frame = linelist[i][1];
-		line.Pos = linelist[i][2];
-		line.RotAngle = lineangle;
-		MovableMan:AddParticle(line);
-	end
-	AddLineCaps(team, start, dest, size1, size2, dtype);
-end
---Function to add the arrowhead caps to lines so they connect well with movators
-function AddLineCaps(team, start, dest, size1, size2, dtype)
-	local pos, dir = {}, {};
-	local dist = 22;
-	--Vertical
-	if dtype == 0 then
-		dir[1] = math.rad(270);
-		dir[2] = math.rad(90);
-		pos[1] = Vector(start.X, start.Y - dist);
-		pos[2] = Vector(dest.X, dest.Y + dist);
-	--Horizontal
-	else
-		dir[1] = math.rad(0);
-		dir[2] = math.rad(180);
-		pos[1] = Vector(start.X - dist, start.Y);
-		pos[2] = Vector(dest.X + dist, dest.Y);
-	end
-	for i = 1, 2 do
-		cap = CreateMOSRotating("Movator Line Cap" , "Movator.rte");
-		cap.Team = team;
-		cap.Pos = pos[i];
-		cap.RotAngle = dir[i];
-		MovableMan:AddParticle(cap);
-	end
 end
 --Function to generate a table of the shortest path between every possible combination of nodes
 function AddAllPaths(team)
@@ -579,8 +444,8 @@ function GenerateNodeInfo(node)
 	MovatorAllNodesGenerated = false;
 	--Set the area this movator encompasses
 	local mytable = MovatorNodeTable[node.Team+3][node];
-	mytable[2] = node.Sharpness; --Changeable so you can have giant movator blocks
-	local size = node.Sharpness;
+	local size = node.Sharpness <= 1 and MovatorDefaultNodeSize or node.Sharpness;
+	mytable[2] = size;
 	mytable.box = Box(Vector(node.Pos.X - size*0.5, node.Pos.Y - size*0.5) , Vector(node.Pos.X + size*0.5, node.Pos.Y + size*0.5));
 	mytable.sbox = Box(Vector(node.Pos.X - size*0.25, node.Pos.Y - size*0.25) , Vector(node.Pos.X + size*0.25, node.Pos.Y + size*0.25));
 	
