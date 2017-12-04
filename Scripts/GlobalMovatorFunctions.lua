@@ -31,8 +31,9 @@ function RecheckAllMovators(team)
 	MovatorNodeTable[team+3] = {length = 0};
 	--Iterate through all particles to find the node and add it
 	for node in MovableMan.Particles do
+		node = ToMOSRotating(node);
 		if node.PresetName == "Movator Zone Node" and node.Team == team then
-			node.Sharpness = 100;
+			node:SetNumberValue("shouldReaddNode", 1);
 		end
 	end
 end
@@ -40,13 +41,6 @@ end
 function AddAllBoxes(team)
 	CombinedMovatorArea[team+3] = Area();
 	local mytable = MovatorNodeTable[team+3];
-	
-	--Clean up all connecting lines for this team so we can readd them
-	for p in MovableMan.Particles do
-		if p.PresetName:find("Movator Line") ~= nil and p.Team == team then
-			p.ToDelete = true;
-		end
-	end
 	
 	--Now add all boxes and lines
 	for k, v in pairs(mytable) do
@@ -421,7 +415,8 @@ function AddMovatorNode(node)
 			for nodeKey, nodeInfo in pairs(teamNodeTable) do
 				if (type(nodeKey) ~= "string") then
 					if nodeInfo.box ~= false then
-						local nodeBox = Box(Vector(node.Pos.X - node.Sharpness*0.5, node.Pos.Y - node.Sharpness*0.5) , Vector(node.Pos.X + node.Sharpness*0.5, node.Pos.Y + node.Sharpness*0.5));
+						local size = node.Sharpness <= 1 and MovatorDefaultNodeSize or node.Sharpness;
+						local nodeBox = Box(Vector(node.Pos.X - size*0.5 + 0.5, node.Pos.Y - size*0.5) , Vector(node.Pos.X + size*0.5, node.Pos.Y + size*0.5));
 						if BoxesIntersect(nodeInfo.box, nodeBox) then
 							node.ToDelete = true;
 							return false;
@@ -517,7 +512,18 @@ function CheckConnections(node)
 			---------------------------------------------
 			--Check for visibility and direct attachment between this and closest node
 			local rayvec = SceneMan:ShortestDistance(node.Pos,target.Pos,mywraps);
-			local ray = SceneMan:CastStrengthRay(node.Pos, rayvec, 15, Vector(), 4, 0, true);
+			local rayOffsets = {
+				(k == "a" or k == "b") and Vector(-mytable[node][2]*0.25, 0) or Vector(0, -mytable[node][2]*0.25);
+				Vector(0, 0),
+				(k == "a" or k == "b") and Vector(mytable[node][2]*0.25, 0) or Vector(0, mytable[node][2]*0.25);
+			}
+			local ray = false;
+			for _, rayOffset in ipairs(rayOffsets) do
+				ray = SceneMan:CastStrengthRay(node.Pos + rayOffset, rayvec, 15, Vector(), 4, 0, true);
+				if (ray == true) then
+					break;
+				end
+			end
 			--If we've got a clear los to the nearest node, add the values to the global table and the global movator area if needed and set the target's closest to be this
 			if ray == false and MovableMan:IsParticle(target) then --Make sure the movator node exists for safety
 				
@@ -557,7 +563,7 @@ function RemoveMovatorNode(node)
 			if v ~= nil then
 				--Completely reset the movator's table value, not done manually to avoid maintaining two similar functions
 				mytable[v] = nil;
-				v.Sharpness = 100;
+				v:SetNumberValue("shouldReaddNode", 1);
 			end
 		end
 		MovatorNodeTable[node.Team+3].length = MovatorNodeTable[node.Team+3].length - 1;
@@ -571,7 +577,8 @@ end
 function BoxesIntersect(box1, box2)
 	local box1Area = Area();
 	box1Area:AddBox(box1);
-	local points = {box2.Corner, Vector(box2.Corner.X + box2.Width, box2.Corner.Y), Vector(box2.Corner.X, box2.Corner.Y + box2.Height), Vector(box2.Corner.X + box2.Width, box2.Corner.Y + box2.Height)}
+	local correctedBox2 = Box(box2.Corner + Vector(0.1, 0.1), Vector(box2.Corner.X + box2.Width - 0.1, box2.Corner.Y + box2.Height - 0.1));
+	local points = {correctedBox2.Corner, Vector(correctedBox2.Corner.X + correctedBox2.Width, correctedBox2.Corner.Y), Vector(correctedBox2.Corner.X, correctedBox2.Corner.Y + correctedBox2.Height), Vector(correctedBox2.Corner.X + correctedBox2.Width, correctedBox2.Corner.Y + correctedBox2.Height)}
 	for _, point in ipairs(points) do
 		if box1Area:IsInside(point) then
 			return true;
