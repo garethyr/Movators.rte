@@ -8,7 +8,6 @@ function Update(self)
 					node.Lifetime = 1000;
 					node.ToDelete = true;
 					self.ToDelete = true;
-					print ("Node Removed");
 				end
 			end
 		end

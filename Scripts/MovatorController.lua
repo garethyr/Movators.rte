@@ -236,6 +236,9 @@ function Create(self)
 	
 	self.ActorCheckLagTimer:Reset();
 	self.ActorMovementLagTimer:Reset();
+	
+	--Helper variable for the current activity
+	self.CurrentActivity = ActivityMan:GetActivity();
 end
 -----------------------------------------------------------------------------------------
 -- Update
@@ -271,8 +274,36 @@ function Update(self)
 		end
 	end
 	
-	--If we're running the activity, do various checks
-	if ActivityMan:GetActivity().ActivityState == Activity.RUNNING then
+	--If we're in the editing mode, draw lines to ghost movators
+	if (self.CurrentActivity.ActivityState == Activity.EDITING) then
+		local relevantPlayers = {};
+		for player = 0, Activity.PLAYER_4 do
+			if (self.CurrentActivity:PlayerHuman(player) and self.CurrentActivity:GetTeamOfPlayer(player) == self.Team) then
+				relevantPlayers[#relevantPlayers + 1] = player;
+			end
+		end
+		local fuzzyPositionMatch = function(pos1, pos2, fuzziness)
+			return (math.abs(pos1.X - pos2.X) <= fuzziness or math.abs(pos1.Y - pos2.Y) <= fuzziness);
+		end
+		
+		for _, player in ipairs(relevantPlayers) do
+			local selectedEditorObject = ToGameActivity(self.CurrentActivity):GetEditorGUI(player):GetCurrentObject();
+			if (selectedEditorObject ~= nil and selectedEditorObject.PresetName == "Movator Zone") then
+				local nearestMovator = NearestMovator(self, selectedEditorObject.Pos, true, nil, false);
+				local nearestMovatorIsVisible = nearestMovator ~= nil;
+				if (not (nearestMovatorIsVisible and fuzzyPositionMatch(nearestMovator.Pos, selectedEditorObject.Pos, 12))) then
+					nearestMovator = NearestMovator(self, selectedEditorObject.Pos, false, nil, false);
+					nearestMovatorIsVisible = false;
+				end
+				
+				if (nearestMovator ~= nil and fuzzyPositionMatch(nearestMovator.Pos, selectedEditorObject.Pos, 12)) then
+					local positionMatchesExactly = fuzzyPositionMatch(nearestMovator.Pos, selectedEditorObject.Pos, 0);
+					local lineColour = nearestMovatorIsVisible and (positionMatchesExactly and 147 or 159) or (positionMatchesExactly and 12 or 8);
+					FrameMan:DrawLinePrimitive(nearestMovator.Pos, selectedEditorObject.Pos, lineColour);
+				end
+			end
+		end
+	elseif (self.CurrentActivity.ActivityState == Activity.RUNNING) then
 		--Make sure all nodes are fully generated before doing any of these complex checks so there are no screwups in making their boxes
 		if self.NodeGenerationSafetyTimer ~= nil and self.NodeGenerationSafetyTimer:IsPastSimMS(self.NodeGenerationSafetyInterval) then
 			self.NodeGenerationSafetyInterval = 50;
@@ -931,7 +962,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 						end
 					end
 					--If we're close, move to the next stage, aka waiting
-					if mytable[start].sbox:WithinBox(actor.Pos) then
+					if mytable[start].sbox:IsWithinBox(actor.Pos) then
 						dir = 4; --Wait if there
 						mstage = 1;
 					end
@@ -979,7 +1010,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 				end
 				--If we haven't already jumped ahead, when we're within our current next node's box, figure out what to do next
 				if mstage < 4 and MovableMan:IsActor(actor) then
-					if mytable[nnode].sbox:WithinBox(actor.Pos) then
+					if mytable[nnode].sbox:IsWithinBox(actor.Pos) then
 						--If it's not the destination find the next path direction
 						dir = mypaths[nnode][dest][2];
 						if dir < 4 then

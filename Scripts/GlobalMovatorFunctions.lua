@@ -417,7 +417,7 @@ function AddMovatorNode(node)
 					if nodeInfo.box ~= false then
 						local size = node.Sharpness <= 1 and MovatorDefaultNodeSize or node.Sharpness;
 						local nodeBox = Box(Vector(node.Pos.X - size*0.5 + 0.5, node.Pos.Y - size*0.5) , Vector(node.Pos.X + size*0.5, node.Pos.Y + size*0.5));
-						if BoxesIntersect(nodeInfo.box, nodeBox) then
+						if nodeInfo.box:IntersectsBox(nodeBox) then
 							node.ToDelete = true;
 							return false;
 						end
@@ -573,20 +573,6 @@ end
 -----------------------------
 --General Utility Functions--
 -----------------------------
---Function for checking if two boxes intersect
-function BoxesIntersect(box1, box2)
-	local box1Area = Area();
-	box1Area:AddBox(box1);
-	local correctedBox2 = Box(box2.Corner + Vector(0.1, 0.1), Vector(box2.Corner.X + box2.Width - 0.1, box2.Corner.Y + box2.Height - 0.1));
-	local points = {correctedBox2.Corner, Vector(correctedBox2.Corner.X + correctedBox2.Width, correctedBox2.Corner.Y), Vector(correctedBox2.Corner.X, correctedBox2.Corner.Y + correctedBox2.Height), Vector(correctedBox2.Corner.X + correctedBox2.Width, correctedBox2.Corner.Y + correctedBox2.Height)}
-	for _, point in ipairs(points) do
-		if box1Area:IsInside(point) then
-			return true;
-		end
-	end
-	return false;
-end
-
 --DEBUG
 function DebugMovators(num, team)
 	if num == 1 then
