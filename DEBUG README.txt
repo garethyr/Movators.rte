@@ -7,6 +7,7 @@ I've divided the function keys into 3 groups for organization:
 	    paste into the console for a in MovableMan.Actors do a.Lifetime = 0 end
 
 	z - All global movator variables and functions. Press it twice with a short delay between presses to fully reset
+	
 	If you're running into serious issues, I suggest pressing c then z twice then c again and things should clean up well
 
 2. Display
@@ -14,7 +15,7 @@ I've divided the function keys into 3 groups for organization:
 
 	b - Displays info on all movator affected actors for this controller's team's movators
 
-	n - Dispalys info on all the movator paths for this controller's team, also displays how many paths each movator has and the total number of paths
+	n - Displays info on all the movator paths for this controller's team, also displays how many paths each movator has and the total number of paths
 
 3. Functional
 	x - Recalculates all the paths for this controller's team, then places objective arrows above all movators showing their position.

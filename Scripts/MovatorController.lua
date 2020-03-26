@@ -288,7 +288,7 @@ function Update(self)
 		
 		for _, player in ipairs(relevantPlayers) do
 			local selectedEditorObject = ToGameActivity(self.CurrentActivity):GetEditorGUI(player):GetCurrentObject();
-			if (selectedEditorObject ~= nil and selectedEditorObject.PresetName == "Movator Zone") then
+			if (selectedEditorObject ~= nil and (selectedEditorObject.PresetName == "Movator Zone" or selectedEditorObject.PresetName == "Teleporter Zone")) then
 				local nearestMovator = NearestMovator(self, selectedEditorObject.Pos, true, nil, false);
 				local nearestMovatorIsVisible = nearestMovator ~= nil;
 				if (not (nearestMovatorIsVisible and fuzzyPositionMatch(nearestMovator.Pos, selectedEditorObject.Pos, 12))) then
@@ -303,6 +303,7 @@ function Update(self)
 				end
 			end
 		end
+	--If we're running the activity, do various checks
 	elseif (self.CurrentActivity.ActivityState == Activity.RUNNING) then
 		--Make sure all nodes are fully generated before doing any of these complex checks so there are no screwups in making their boxes
 		if self.NodeGenerationSafetyTimer ~= nil and self.NodeGenerationSafetyTimer:IsPastSimMS(self.NodeGenerationSafetyInterval) then
@@ -342,6 +343,7 @@ function Update(self)
 					--Remove the actor if it's dead and don't try to do anything with it
 					if not MovableMan:IsActor(v.act) then
 						self.MovatorAffectedActors[k] = nil;
+						self.MovatorAffectedActors.length = self.MovatorAffectedActors.length - 1;
 					else
 						--Removes the actors from the table if they're not in the Movator Area
 						if not CombinedMovatorArea[self.Team+3]:IsInside(v.act.Pos) then
@@ -454,7 +456,8 @@ function DoUI(self)
 		sizes = {"Small", "Medium", "Large"}
 	}
 	local textDataTable = {
-		"Controlled Movators: "..tostring(MovatorNodeTable[self.Team+3].length),
+		"Controlled Nodes: "..tostring(MovatorNodeTable[self.Team+3].length),
+		"Controlled Teleporters: "..tostring(MovatorTeleporterNodes[self.Team+3].length),
 		"Number of Affected Actors: "..tostring(self.MovatorAffectedActors.length),
 		"Movator Accepts All Teams: "..tostring(self.AcceptAllActors),
 		"Movator Accepts Crafts: "..tostring(self.AcceptCrafts),
@@ -810,6 +813,7 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 	elseif MovableMan:IsActor(actor) and not actor:IsPlayerControlled() and mstage < 7 and ((SceneMan:ShortestDistance(actor:GetLastAIWaypoint(), actor.Pos, MovatorCheckWrapping).Magnitude > 10) or target[1] ~= nil) then
 		local mytable = MovatorNodeTable[self.Team+3];
 		local mypaths = MovatorPathTable[self.Team+3];
+		local myteleporters = MovatorTeleporterNodes[self.Team+3];
 	
 		------------
 		--Starting--
@@ -1020,7 +1024,39 @@ function GetDirections(self, actor, dir, mstage, start, nnode, dest, target)
 							if mypaths[nnode][dest][2] == 4 and mstage == 2 then
 								mstage = 3;
 							end
-						--If it's the destination, advance the stage
+						--If our next node's direction is 5 it must be a teleporter and it must be wanting to send us through a teleporter
+						elseif (dir == 5) then
+							--If our destination is a teleporter, move to it advance the stage and remove the destination
+							if (myteleporters[dest]) then
+								actor.Pos = dest.Pos;
+								mstage = 4;
+								dest = nil;
+						--If our next node's direction is 5 it must be a teleporter and it must be wanting to send us through a teleporter
+						elseif (dir == 5) then
+							--If our destination is a teleporter, move to it advance the stage and remove the destination
+							if (myteleporters[dest]) then
+								actor.Pos = dest.Pos; --Teleport the actor to its destination
+								mstage = 4;
+								dest = nil;
+							--If our destination isn't a teleporter, we need to go to the nearest teleporter to the destination
+							else
+								local shortestPath = math.huge;
+								local closestTeleporterToDestination;
+								for teleporter, _ in pairs(myteleporters) do
+									if (mypaths[teleporter][dest][1] < shortestPath) then
+										closestTeleporterToDestination = teleporter;
+									end
+								end
+								actor.Pos = closestTeleporterToDestination.Pos; --Teleport the actor to the closest teleporter to the destination
+								dir = mypaths[closestTeleporterToDestination][dest][2];
+								local n = {"a", "b", "l", "r"};
+								nnode = mytable[closestTeleporterToDestination][n[dir+1]][1];
+								--If our new next node is next to the destination and we're not already in stage 3, advance the stage
+								if mypaths[nnode][dest][2] == 4 and mstage == 2 then
+									mstage = 3;
+								end
+							end
+						--If it's the destination, advance the stage and remove the destination
 						else
 							mstage = 4;
 							dest = nil;

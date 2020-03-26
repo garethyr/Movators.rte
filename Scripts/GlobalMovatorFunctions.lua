@@ -6,6 +6,7 @@ if not GlobalMovatorVariablesMade then
 	MovatorPowerValues = {};
 
 	MovatorNodeTable = {};
+	MovatorTeleporterNodes = {};
 	MovatorPathTable = {};
 	CombinedMovatorArea = {};
 	MovatorCheckWrapping = false;
@@ -21,6 +22,7 @@ end
 --Function for resetting all the movator variables for a team except power
 function ResetMovatorVariables(team)
 	MovatorNodeTable[team+3] = {length = 0};
+	MovatorTeleporterNodes[team+3] = {length = 0};
 	CombinedMovatorArea[team+3] = Area();
 	MovatorPathTable[team+3] = {};
 	print ("Global Movator Variables Reset For Team "..tostring(team));
@@ -32,7 +34,7 @@ function RecheckAllMovators(team)
 	--Iterate through all particles to find the node and add it
 	for node in MovableMan.Particles do
 		node = ToMOSRotating(node);
-		if node.PresetName == "Movator Zone Node" and node.Team == team then
+		if node.Team == team and (node.PresetName == "Movator Zone Node" or node.PresetName == "Teleporter Zone Node") then
 			node:SetNumberValue("shouldReaddNode", 1);
 		end
 	end
@@ -111,6 +113,7 @@ end
 function AddAllPaths(team)
 	local mypaths = MovatorPathTable[team+3];
 	local mytable = MovatorNodeTable[team+3];
+	local myteleporters = MovatorTeleporterNodes[team+3];
 	--Iterate through the node table since we need a set of paths for each node
 	local confirmed, tentative = {}, {}; --Format - [node] = {distance, direction for next hop}
 	local nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
@@ -137,6 +140,14 @@ function AddAllPaths(team)
 			end
 			if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
 				tentative[my.r[1]] = {my.r[2]+confirmed[k][1], 3};
+			end
+			--If source is a teleporter, add all teleporters as tentative with 0 distance
+			if (myteleporters[k]) then
+				for teleporter, _ in pairs(myteleporters) do
+					if (type(teleporter) ~= "string" and teleporter.UniqueID ~= k.UniqueID) then
+						tentative[teleporter] = {0, 5}; --Teleporter distance is always 0, direction is special teleporter direction
+					end
+				end
 			end
 			
 			--Start the loop to keep going while we have tentative nodes
@@ -194,6 +205,14 @@ function AddAllPaths(team)
 						tentative[my.r[1]] = {my.r[2]+confirmed[nnode][1], confirmed[nnode][2]};
 					end
 				end
+				--If next node is a teleporter, add all teleporters as tentative with 0 distance
+				if (myteleporters[nnode]) then
+					for teleporter, _ in pairs(myteleporters) do
+						if (type(teleporter) ~= "string" and teleporter.UniqueID ~= nnode.UniqueID and confirmed[teleporter] == nil) then
+							tentative[teleporter] = {confirmed[nnode][1], confirmed[nnode][2]}; --Teleporter distance is always the same as the previous distance, direction is special teleporter direction
+						end
+					end
+				end
 				
 				-------------------------------
 				--Checking for loop finishing--
@@ -211,6 +230,7 @@ function AddAllPaths(team)
 				end
 			end
 		end
+		
 		--Add the confirmed table to this node's dijkstra table
 		mypaths[k] = confirmed;
 		--Take a break
@@ -222,6 +242,7 @@ end
 function ShowMyPath(team, node)
 	local mypaths = MovatorPathTable[team+3];
 	local mytable = MovatorNodeTable[team+3];
+	local myteleporters = MovatorTeleporterNodes[team+3];
 	--Iterate through the node table since we need a set of paths for each node
 	local confirmed, tentative = {}, {}; --Format - [node] = {distance, direction for next hop}
 	local nnode = nil; notents = false; dist1 = nil; dist2 = nil; count = 0; my = nil;
@@ -248,18 +269,25 @@ function ShowMyPath(team, node)
 	if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
 		tentative[my.r[1]] = {my.r[2]+confirmed[node][1], 3};
 	end
+	--If this node is a teleporter, add all teleporters as tentative with 0 distance
+	if (myteleporters[node]) then
+		for teleporter, _ in pairs(myteleporters) do
+			if (type(teleporter) ~= "string" and teleporter.UniqueID ~= node.UniqueID and confirmed[teleporter] == nil) then
+				tentative[teleporter] = {0, 5}; --Teleporter distance is always 0, direction is special teleporter direction
+				print("Starting at teleporter, added tentative teleporter at "..tostring(teleporter.Pos));
+			end
+		end
+	end
 	
 	--Start the loop to keep going while we have tentative nodes
-	while notents == false and not UInputMan:KeyPressed(1) do
+	while notents == false do
 		objpoints = {};
 		for m, n in pairs(confirmed) do
-			--ToGameActivity(ActivityMan:GetActivity()):AddObjectivePoint("Confirmed, dist: "..tostring(n[1]).." dir: "..tostring(n[2]), Vector(m.Pos.X, m.Pos.Y), team, GameActivity.ARROWDOWN);
 			objpoints[#objpoints+1] = {"Confirmed, dist: "..tostring(n[1]).." dir: "..tostring(n[2]), Vector(m.Pos.X, m.Pos.Y), team, GameActivity.ARROWDOWN};
 			print("Confirmed: "..tostring(m.Pos).."  "..tostring(n[1]).."  "..tostring(n[2]));
 		end
 		print("");
 		for m, n in pairs(tentative) do
-			--ToGameActivity(ActivityMan:GetActivity()):AddObjectivePoint("Tentative, dist: "..tostring(n[1]).." dir: "..tostring(n[2]), Vector(m.Pos.X, m.Pos.Y), team, GameActivity.ARROWDOWN);
 			objpoints[#objpoints+1] = {"Tentative, dist: "..tostring(n[1]).." dir: "..tostring(n[2]), Vector(m.Pos.X, m.Pos.Y), team, GameActivity.ARROWUP};
 			print("Tentative: "..tostring(m.Pos).."  "..tostring(n[1]).."  "..tostring(n[2]));
 		end
@@ -316,6 +344,15 @@ function ShowMyPath(team, node)
 		if my.r[1] ~= nil and confirmed[my.r[1]] == nil then
 			if (tentative[my.r[1]] ~= nil and tentative[my.r[1]][1] > (my.r[2]+confirmed[nnode][1])) or tentative[my.r[1]] == nil then
 				tentative[my.r[1]] = {my.r[2]+confirmed[nnode][1], confirmed[nnode][2]};
+			end
+		end
+		--If next node is a teleporter, add all teleporters as tentative with 0 distance
+		if (myteleporters[nnode]) then
+			for teleporter, _ in pairs(myteleporters) do
+				if (type(teleporter) ~= "string" and teleporter.UniqueID ~= node.UniqueID and confirmed[teleporter] == nil) then
+					tentative[teleporter] = {confirmed[nnode][1], confirmed[nnode][2]}; --Teleporter distance is always the same as the previous distance, direction is special teleporter direction
+					print("Added tentative teleporter at "..tostring(teleporter.Pos));
+				end
 			end
 		end
 		
@@ -425,10 +462,18 @@ function AddMovatorNode(node)
 				end
 			end
 		end
+		
 		MovatorNodeTable[node.Team+3][node] = {0, 0, a = {nil, 0}, b = {nil, 0}, l = {nil, 0}, r = {nil, 0}, box = false, sbox = false, area = {above = nil, left = nil}};
 		--Fill in the inputted movator node's information then return true so the zone knows it's good
 		if GenerateNodeInfo(node) then
 			MovatorNodeTable[node.Team+3].length = MovatorNodeTable[node.Team+3].length + 1;
+			
+			--Add to teleporter node list if needed
+			if (node.PresetName == "Teleporter Zone Node") then
+				MovatorTeleporterNodes[node.Team+3][node] = true;
+				MovatorTeleporterNodes[node.Team+3].length = MovatorTeleporterNodes[node.Team+3].length + 1;
+			end
+			
 			return true;
 		end
 	end
@@ -567,6 +612,12 @@ function RemoveMovatorNode(node)
 			end
 		end
 		MovatorNodeTable[node.Team+3].length = MovatorNodeTable[node.Team+3].length - 1;
+	end
+	
+	--Remove from teleporter node list if needed
+	if (node.PresetName == "Teleporter Zone Node") then
+		MovatorTeleporterNodes[node.Team+3][node] = nil;
+		MovatorTeleporterNodes[node.Team+3].length = MovatorTeleporterNodes[node.Team+3].length - 1;
 	end
 end
 
